@@ -1,28 +1,32 @@
 {
   "project": "refirail",
-  "currentPhase": "phase-0",
-  "currentStep": "0.1",
-  "currentSubStep": "0.1.a",
+  "currentPhase": "phase-1",
+  "currentStep": "1.1",
+  "currentSubStep": "1.1.a",
   "status": "in-progress",
   "autonomous_mode": true,
   "expected_phases": ["phase-0", "phase-1", "phase-2", "phase-3", "phase-4"],
-  "completedSteps": [],
-  "fileGroups": {},
-  "deviations": [],
-  "phaseExecutors": {},
+  "completedSteps": ["0.1", "0.2", "0.3", "0.4"],
+  "fileGroups": {
+    "0.1": { "files": ["package.json", "tsconfig.json", "next.config.mjs", ".env.example", ".gitignore"], "written": true, "verified": true },
+    "0.2": { "files": ["lib/config.ts", "lib/types.ts"], "written": true, "verified": true },
+    "0.4": { "files": [".env.local"], "written": true, "verified": true }
+  },
+  "deviations": [
+    { "step": "0.1", "id": "DEV-001", "description": "manual scaffold instead of create-next-app", "reason": "project root holds planning docs create-next-app refuses to overlay", "class": "COSMETIC", "impact": "none" },
+    { "step": "0.1", "id": "DEV-002", "description": "@mysten/sui pinned ^2.18.0 not ^1.30.0", "reason": "suilend 3.0.4 peers on sui v2", "class": "DEGRADED", "impact": "Task 1.1 gRPC ctor tree vs sui 2.18.0; dapp-kit 0.16.16 may need 1.x in Phase 3" },
+    { "step": "0.1", "id": "DEV-003", "description": "--legacy-peer-deps required", "reason": "suilend pins exact peers; installed coherent latest", "class": "DEGRADED", "impact": "downpin sui@2.17.0/pyth@2.2.0 if suilend init or Pyth throws" },
+    { "step": "0.3", "id": "DEV-004", "description": "Navi config endpoint lacks assetId->coin table", "reason": "endpoint shape; assetId=10 spike-provenanced, SDK-resolved", "class": "COSMETIC", "impact": "verify NAVI.USDC_ASSET_ID at Phase 1 navi position read" }
+  ],
+  "phaseExecutors": { "phase-0": "subagent" },
   "contractAddresses": {},
-  "env": {},
+  "env": { "NEXT_PUBLIC_DEMO_ADDRESS": "0xc98eeaca815f354aaf65df4250d928bfc2fc089507dc005d5ad26ed36ed393b3" },
   "devPort": 3000,
-  "depsVerified": false,
-  "verification_commands": [],
+  "depsVerified": true,
+  "walletFunded": false,
+  "verification_commands": ["npm install", "npx tsc --noEmit", "deepbook constants check", "git compliance key-handling"],
   "screenshot_paths": [],
   "context_percentage": 0,
-  "preverify": {
-    "deepbook_v3_resolved": "1.5.0",
-    "mysten_sui_resolved": "2.18.0",
-    "suilend_sdk": "3.0.4",
-    "navi_lending": "1.4.6",
-    "endpoints_live": true
-  },
-  "timestamp": "2026-06-17T14:10:00Z"
+  "preverify": { "deepbook_v3_resolved": "1.5.0", "mysten_sui_resolved": "2.18.0", "dapp_kit_resolved": "0.16.16", "suilend_sdk": "3.0.4", "navi_lending": "1.4.6" },
+  "timestamp": "2026-06-17T14:25:00Z"
 }

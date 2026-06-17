@@ -5,23 +5,46 @@ Builder: hackathon-build skill (in-session orchestrator; pipeline run in order, 
 ## Summary
 | Phase | Steps | Status | Notes |
 |-------|-------|--------|-------|
-| 0 Scaffold & Setup | 0.1–0.4 | in-progress | — |
+| 0 Scaffold & Setup | 0.1–0.4 | complete (commit 3230fa3) | manual scaffold; sui pinned to v2 for suilend peer; wallet generated, AWAITING FUNDING |
 
 ## Deviations from Architecture
 | ID | Component | ARCHITECTURE Said | ACTUAL | Reason | Class | Downstream Impact |
 |----|-----------|-------------------|--------|--------|-------|-------------------|
+| DEV-001 | scaffold method | scaffold via create-next-app | wrote package.json/tsconfig/next.config/.gitignore/.env.example manually, then npm install in place | create-next-app refuses to overlay a dir holding planning .md docs | COSMETIC | none — identical config; app/ from ARCHITECTURE §13 later |
+| DEV-002 | package.json @mysten/sui pin | `^1.30.0` | `^2.18.0` (resolved 2.18.0) | @suilend/sdk@3.0.4 (load-bearing) peers on sui v2; deepbook-v3@1.5.0 peers `^2.18.0`; `^1.30.0` ERESOLVE-fails | DEGRADED | **Task 1.1 SuiGrpcClient ctor tree must run vs sui 2.18.0**; dapp-kit resolved 0.16.16 (sui-v1 era) → Phase 3 may need dapp-kit 1.x bump |
+| DEV-003 | npm install peer resolution | clean install | required `--legacy-peer-deps` | suilend 3.0.4 pins EXACT peers (sui 2.17.0, pyth 2.2.0); installed coherent latest (sui 2.18.0, pyth 3.0.0) | DEGRADED | if Phase 1 suilend init / Phase 2 Pyth throws type/runtime mismatch → downpin sui@2.17.0 and/or pyth@2.2.0; lockfile committed |
+| DEV-004 | Task 0.3 Navi assetId verify | confirm USDC=assetId 10 via /api/navi/config | endpoint LIVE 200 but exposes only protocol object ids, not the assetId→coin table | that endpoint's shape lacks the mapping; assetId=10 is spike-provenanced, resolved live by SDK | COSMETIC | assetId=10 not yet observed live; **Phase 1 navi.ts position read is the first real exercise** — fix NAVI.USDC_ASSET_ID there if SDK maps differently |
+| DEV-005 | @mysten/sui v2 API restructure (clients.ts + 3 importers) | ARCH used `SuiClient` from `@mysten/sui/client` | v2.18.0 renamed `SuiClient→SuiJsonRpcClient` (subpath `@mysten/sui/jsonRpc`); gRPC+JSON-RPC ctors need `network`; clients.ts re-exports a `SuiClient` type alias threaded into deepbook/refinance/simulate | sui pinned to v2 (DEV-002) for suilend peer | DEGRADED (adapted) | real v2 clients fully typed; orchestrator-verified gRPC ctor + suilend init both live-OK |
+| DEV-006 | navi.ts PTB-helper call boundaries | direct typed `tx` passing | added 7 `tx as never` (+coin/receipt) casts | @naviprotocol/lending@1.4.6 bundles nested @mysten/sui@1.45.2 — its `Transaction` is a nominally-distinct private brand vs root 2.18.0 | COSMETIC (type-only; runtime PTB object identical) | **known risk for debug: 7 cast sites bypass TS checking — funded dryRun is the real proof** |
+| DEV-007 | dependency tree (@suilend/sui-fe) | implied present | installed `@suilend/sui-fe@^3.0.7` (--legacy-peer-deps) | @suilend/sdk@3.0.4 client.js requires it; absent from Phase 0 install | DEGRADED (install fix, real dep) | funded dryRun scripts rely on it; lockfile committed |
 
 ## Failed Attempts & Resolutions
 | Step | Error | Attempts | Resolution |
 |------|-------|----------|------------|
+| 0.1 | npm install ERESOLVE (sui ^1.30 vs suilend v2 peer) | 1 | moved sui→^2.18.0 (DEV-002) + `--legacy-peer-deps` (DEV-003) |
 
 ## Verification Results
 | Phase | Command | Expected | Actual | Pass? |
 |-------|---------|----------|--------|-------|
+| 0 | npm install | added NNN packages | added 296 packages, audited 297 (8 vulns) | ✅ |
+| 0 | @suilend/sdk version | 3.0.4 | 3.0.4 (exact) | ✅ |
+| 0 | deepbook constants PACKAGE_ID vs config.ts | 0x0e735f8c…f748 | matched (file moved cjs→mjs in 1.5.0; ids unchanged) | ✅ |
+| 0 | npx tsc --noEmit (orchestrator re-run) | no errors | exit 0 | ✅ |
+| 0 | native USDC binding | dba3…::usdc::USDC active; wormhole labeled DO_NOT_USE | confirmed; NAVI.USDC_ASSET_ID=10 | ✅ |
+| 0 | compliance: key handling | .env.local ignored, key not tracked, addr valid | all 4 PASS | ✅ |
+| 1 | npx tsc --noEmit (orchestrator re-run, all lib/) | exit 0 | TSC_EXIT=0 | ✅ |
+| 1 | SuiGrpcClient ctor (RISK 2) | constructs | `{network,baseUrl}` → grpc ok true | ✅ |
+| 1 | suilend init smoke (RISK 1 — #1 unknown) | init ok true | SUILEND_INIT_OK true (orchestrator probe-file re-run) | ✅ |
+| 1 | navi helper names (RISK 8) | all 6 present | 6/6 | ✅ |
+| 1 | DOMAIN-GUIDE invariants | 5 invariants + addRefreshCalls=false | present (27 keyword hits) | ✅ |
 
 ## Known Risks (for debug)
-- DeepBook v3 SDK floated to 1.5.0 (url_preverify); Task 0.2 must confirm installed constants.js PACKAGE_ID matches config.ts before paste.
-- @mysten/sui resolved to 2.18.0; Task 1.1 SuiGrpcClient ctor option must be confirmed live.
+- DeepBook v3 SDK floated to 1.5.0 (url_preverify); Task 0.2 confirmed installed constants PACKAGE_ID still matches config.ts (RESOLVED — ids unchanged, only file path moved cjs→mjs).
+- @mysten/sui resolved to 2.18.0; SuiGrpcClient ctor confirmed live with `{network,baseUrl}` (RESOLVED).
+- **DEV-006: navi.ts has 7 `tx as never` casts** (cross-version Transaction brand: navi bundles sui@1.45.2 vs root 2.18.0). Type-safe-bypassed call sites — the funded dryRun (Task 1.9) is the real proof these PTB legs thread correctly. Highest-priority debug watch.
+- DEV-007/003 peer mismatch: suilend wants sui@2.17.0/pyth@2.2.0, installed 2.18.0/3.0.0. If funded dryRun throws a Pyth/refresh type/runtime mismatch → downpin. Lockfile committed for reproducibility.
+- Suilend init proven live pre-funding; the remaining #1 unknown is the in-PTB Pyth refresh + borrow guard on a FRESH same-PTB obligation (Task 1.3 isolated dryRun) — needs funds.
+- Minor: inline `tsx -e` dynamic-import smoke tests are flaky for namespace exports; use a probe file (orchestrator did).
 
 ## Contract Addresses
 (N/A — zero net-new Move; no contracts deployed)
@@ -29,3 +52,5 @@ Builder: hackathon-build skill (in-session orchestrator; pipeline run in order, 
 ## Environment Variables Added
 | Key | Source Step | Value/Description |
 |-----|-----------|-------------------|
+| DEMO_PRIVATE_KEY | 0.4 | suiprivkey1… in .env.local (gitignored, never logged) |
+| NEXT_PUBLIC_DEMO_ADDRESS | 0.4 | 0xc98eeaca815f354aaf65df4250d928bfc2fc089507dc005d5ad26ed36ed393b3 — **NOT YET FUNDED** (awaiting ~$5 native SUI) |
