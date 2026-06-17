@@ -59,3 +59,56 @@ Suilend MoveCalls are all present in this single atomic PTB; any leg failing rev
 ## Verify it yourself
 Open the Suiscan link above. The transaction's MoveCalls match the table — DeepBook (flash loan),
 Navi (oracle refresh + repay + withdraw), and Suilend (create/deposit/borrow) inside one atomic tx.
+
+---
+
+## Atomic Revert Proof (INVARIANT 2 / F-003)
+
+The success digest above proves the **happy path**. This section proves the **safety invariant**:
+if the end-state would be unhealthy, the entire PTB reverts atomically and **nothing moves**.
+
+This is the on-chain safety guarantee behind RefiRail: a refinance can never leave you in a worse
+position than you started, because an unhealthy borrow makes the protocol's own borrow guard abort
+the whole transaction — repay, withdraw, deposit, borrow all roll back together.
+
+### How it was proven (fund-free, real mainnet dryRun)
+We built the Suilend leg exactly as in the live refinance (`createObligation → deposit →
+refreshAll([SUI,USDC]) → borrow → transfer cap`), but requested a deliberately **unhealthy** borrow:
+
+| Field | Value |
+|---|---|
+| Collateral deposited | **0.5 SUI** (~$0.37) |
+| Borrow attempted | **10 USDC** (far beyond any safe LTV) |
+| Sender | `0xc98eeaca815f354aaf65df4250d928bfc2fc089507dc005d5ad26ed36ed393b3` |
+| Script | `scripts/revert-proof.ts` |
+
+A 10 USDC borrow against ~$0.37 of SUI collateral is grossly over-leveraged, so Suilend's
+`obligation::borrow` health guard rejects it and **aborts the entire PTB**.
+
+### Result — actual output (`npx tsx scripts/revert-proof.ts`)
+```
+dryRun ok: false
+abortReason: MoveAbort in 8th command, abort code: 1, in '0xe53906c2c058d1e369763114418f3c144d1b74960d29b2785718a782fec09b61::obligation::borrow' (instruction 172)
+balanceChanges: []
+balanceChanges count: 0 (empty => zero balance moved => position provably unchanged)
+
+REVERT-PROVEN: Suilend borrow guard aborted the whole PTB atomically.
+```
+
+- **`dryRun ok: false`** — the transaction does not succeed.
+- **`abortReason`** — a `MoveAbort` raised by Suilend's `obligation::borrow` (package
+  `0xe53906c2c058…`), abort code `1`: the requested borrow exceeds what the collateral supports.
+  Because this abort happens *inside the one PTB*, every prior command (deposit, refresh, the would-be
+  withdraw/repay legs in the full refinance) reverts with it. Move PTBs are all-or-nothing.
+- **`balanceChanges: []`** — empty. **Zero balance moved.** A reverted transaction has no effects, so
+  the wallet's SUI and USDC are exactly as before.
+
+### Position provably unchanged
+A `dryRun` mutates nothing on-chain by definition — it never even broadcasts. On top of that, the
+aborted result carries **no balance changes at all**, so there is no path by which the position could
+have moved. The safety invariant holds: an unhealthy refinance reverts atomically and leaves the
+starting position untouched.
+
+> The healthy refinance digest (`BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK`) above is the success
+> proof; this aborted dryRun is the safety-guard proof. Together they show RefiRail moves the position
+> only when the end-state is healthy, and reverts cleanly when it is not.
