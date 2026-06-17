@@ -8,11 +8,19 @@ Builder: hackathon-build skill (in-session orchestrator; pipeline run in order, 
 | 0 Scaffold & Setup | 0.1–0.4 | complete (3230fa3) | manual scaffold; sui pinned to v2 for suilend peer; wallet funded ~1.94 SUI |
 | 1 Day-1 Gate | 1.1–1.9 | **complete — GATE GREEN (a40f4ab + gate)** | Suilend init live; isolated leg GREEN; real Navi position opened (BWSP7...); **full refinance dryRun GREEN → HEADLINE, not floor**. 1.10 seed pending. |
 | 3 Frontend+API (ahead) | 3.1–3.5,3.7 | complete (54a1ce5) | built ahead of funds; tsc clean; /api/position reads real position; deploy 3.6 deferred to pipeline deploy phase |
-| 2 Real refinance + proof | 2.1–2.2 | **2.2 SUCCESS — F-001 PROVEN ON-CHAIN** | real refinance digest BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK; DeepBook+Navi+Suilend in ONE tx; Navi cleared→Suilend. 2.3/2.4/2.5 next. |
+| 2 Real refinance + proof | 2.1–2.5 | **complete — F-001 PROVEN; MILESTONE PASSED** | real refinance digest BiMBPK7…; revert proven (F-003); floor + 2nd DeepBook primitive built; VERIFY-MILESTONE ✅ |
+| 1 (Task 1.10 seed) | 1.10 | complete | idempotent seed-demo.ts (wraps open-position; earned state) |
 
 ### 🔗 F-001 ON-CHAIN PROOF (Task 2.2)
 Digest `BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK` (status success) — verified independently via sui_getTransactionBlock. ONE atomic tx, 15 MoveCalls across 3 protocols: DeepBook `borrow_flashloan_quote`/`return_flashloan_quote`; Navi `entry_repay`/`withdraw_v2`/`oracle update_single_price_v2`; Suilend `create_obligation`/`deposit`/`refresh_reserve_price`/`borrow_request`/`fulfill_liquidity_request`. SUI net −0.038 (gas), USDC net +0.0009. submission/proof.md written. Position now on Suilend; Navi debt = 0.
 **First real tx (HCudT2PcTJmLxrLYtatEmD8tW4SdPsQeNoQevXLHoHiG) REVERTED** (Navi withdraw_v2 abort 1502 — oracle-staleness race, ~0.011 SUI gas) → root-caused (DEV-016) not blind-retried → 2nd tx success.
+
+### ✅ VERIFY-MILESTONE (Task 2.5): PASSED
+Mandatory gate: [x] real refinance digest on Suiscan (BiMBPK7…) · [x] 0 integrations blocked (3 protocols in one tx) · [x] hero flow = real on-chain tx.
+**Observables (FEATURE-OBSERVABLES.md):** F-001 ✅ proven (3 protocols/1 tx) · F-003 ✅ proven (revert ok:false) · F-004 ✅ proven (SUI net = −gas, collateral moved not spent) · F-005 ✅ proven (flash borrow==return, fee-free) · F-007 ✅ proven (native USDC, no wormhole) · **F-002 ⚠ pipeline proven (real execute used buildRefinancePTB) but healthy ok:true+txB64 preview needs a live Navi position** · **F-006 ⚠ /api/position reads real on-chain position (proven when the Navi position existed) but first-paint needs the Navi position re-opened.** 5/7 fully on-chain-proven; F-002/F-006 gated on the demo re-seed (below).
+
+### ⚠ DEMO RE-SEED REQUIRED (for debug/demo phases)
+The real refinance MOVED the demo position Navi→Suilend, so there is currently NO Navi position. F-002 (healthy preview) + F-006 (first-paint) + the live demo all need a Navi SUI/USDC borrow to exist. Options: (a) top up ~1 SUI and run `npm run seed`; or (b) unwind the Suilend position (repay 0.3 USDC + withdraw 1 SUI) to recover funds, then re-seed. Wallet now: ~0.85 SUI free + 0.30 USDC + 1 SUI collateral on Suilend (recoverable).
 
 ### 🎯 DAY-1 GATE RESULT (Task 1.9): GREEN
 Full cross-protocol atomic refinance dry-runs green on live mainnet. SUI net = −gas only (collateral atomically Navi→Suilend), USDC net = +0.0009 (buffer remainder swept). ObligationOwnerCap threads + transfers (RISK 4 sound). **Decision: build the headline. FLOOR (Phase 2F) not needed.**
