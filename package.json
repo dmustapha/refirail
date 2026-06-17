@@ -1,0 +1,33 @@
+{
+  "//": "File: package.json",
+  "name": "refirail",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "open-position": "tsx scripts/open-position.ts",
+    "dryrun": "tsx scripts/refine-dryrun.ts",
+    "execute": "tsx scripts/refine-execute.ts",
+    "seed": "tsx scripts/seed-demo.ts"
+  },
+  "dependencies": {
+    "@mysten/dapp-kit": "^0.16.0",
+    "@mysten/deepbook-v3": "latest",
+    "@mysten/sui": "^2.18.0",
+    "@naviprotocol/lending": "1.4.6",
+    "@pythnetwork/pyth-sui-js": "latest",
+    "@suilend/sdk": "3.0.4",
+    "@tanstack/react-query": "^5.0.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22",
+    "@types/react": "^19"
+  }
+}

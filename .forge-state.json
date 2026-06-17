@@ -1,0 +1,155 @@
+{
+  "version": "1.1",
+  "hackathon_name": "Sui Overflow 2026",
+  "project_name": "refirail",
+  "winning_idea": "RefiRail — one-click atomic lending-position refinance on Sui (Navi -> Suilend in ONE PTB via DeepBook flash loan)",
+  "source": "warroom",
+  "status": "complete",
+  "working_dir": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026",
+  "current_phase": "complete",
+  "feature_observables_path": "refirail/FEATURE-OBSERVABLES.md",
+  "env_example_path": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/.env.example",
+  "current_substep": null,
+  "phases_complete": ["phase-0", "phase-0a-SKIPPED", "phase-0b", "phase-1", "phase-1.5-AUTO", "phase-2", "phase-2.5-AUTO", "phase-3", "phase-3.5-AUTO"],
+  "autonomous_mode": true,
+  "timestamps": {
+    "started": "2026-06-17T11:54:00Z"
+  },
+  "documents": {
+    "prd": "refirail/PRD.md",
+    "architecture": "refirail/ARCHITECTURE.md",
+    "architecture_sections_complete": ["config","types","clients","amounts","deepbook","navi","suilend","refinance","deleverage","simulate","position","api","frontend","scripts","domain","submission","multitrack","safety","deploy","integration-map","security","perf"],
+    "implementation_plan": "refirail/PLAN.md",
+    "mini_verdict": null,
+    "deep_research": null
+  },
+  "quality_scores": {
+    "prd": "6/6 metrics PASS; THESIS-1/2 PASS; 462 lines",
+    "architecture": "10/10 metrics PASS; cross-doc PRD<->ARCH 4/4 PASS; THESIS-3/4 PASS; 30 files, 1680 lines",
+    "implementation_plan": "7/7 metrics PASS; 18 decision trees; 6 phase gates; 853 lines",
+    "cross_doc_audit": "9/9 cross-doc checks PASS; THESIS-1..5 all PASS"
+  },
+  "corrections": [],
+  "tech_stack": {
+    "family": "Full-Stack Web",
+    "languages": ["TypeScript"],
+    "frameworks": ["Next.js", "@mysten/sui", "@mysten/dapp-kit", "@naviprotocol/lending", "@suilend/sdk", "@mysten/deepbook-v3", "@pythnetwork/pyth-sui-js"],
+    "deploy_target": "Vercel"
+  },
+  "thesis": {
+    "winning_argument": "RefiRail is the only idea that satisfies the entire criteria journey at once — real recurring use, not a clone, plugs into existing on-chain liquidity (no market to bootstrap), deeply ecosystem-relevant — and its feasibility is source-verified as buildable in pure TypeScript with zero net-new Move.",
+    "demo_obligation": "In 3 minutes the judge must WITNESS a real lending position move from one protocol to a cheaper one in ONE atomic transaction — a single Suiscan digest showing flash-borrow -> repay source -> withdraw collateral -> deposit destination -> borrow -> flash-repay — with before/after rate + health factor, and the collateral provably intact (recovered, not spent).",
+    "hero_flow": "connect wallet -> see your Navi position at the higher rate -> one click 'Refinance to Suilend' -> one atomic PTB -> position now at the lower rate.",
+    "invariants": [
+      "The refinance is ONE atomic PTB — never a multi-tx sequence that leaves the user exposed.",
+      "Reverts on unhealthy end-state — never leaves a worse/liquidatable position.",
+      "Real protocols + real liquidity (mainnet, small amounts) — no mocked lending; the demo proof is a real Suiscan digest.",
+      "Minimal/zero net-new Move — TypeScript PTB composition IS the build."
+    ],
+    "drift_tripwires": [
+      "if it becomes a generic lending dashboard / rate-aggregator instead of the one-click atomic MOVE, that is drift.",
+      "if a custom Move wrapper is built before the pure-TS PTB works end-to-end, that is drift.",
+      "if the demo is only a simulation with no real on-chain transaction, that is drift (the Suiscan link is the credibility anchor)."
+    ]
+  },
+  "technical_spike": {
+    "needed": true,
+    "results_file": "refirail/TECHNICAL-SPIKE.md",
+    "unknowns": [
+      "Suilend reserve indices (resolve at runtime via findReserveArrayIndex)",
+      "Navi SUI/USDC poolIds (re-confirm Day 1 via getPools)",
+      "Exact-amount reconciliation flash<->Navi-debt<->Suilend-borrow (Day 2 dryRun math)"
+    ],
+    "verified_patterns": [
+      "Suilend LENDING_MARKET_ID 0x84030d26... + TYPE ...::suilend::MAIN_POOL (npm tarball)",
+      "Suilend createObligation->deposit->refreshAll([SUI,USDC])->borrow(cap,'',USDC,amt,tx,false)->transfer cap; obligationId='' + addRefreshCalls=false mandatory",
+      "Suilend 3.0.x init takes SuiGrpcClient not SuiClient (BREAKING)",
+      "DeepBook DEEPBOOK_PACKAGE_ID 0x0e735f8c... + SUI_USDC pool 0xe05dafb5... USDC=quote; borrowQuoteAsset/returnQuoteAsset; fee=0; hot-potato; human units; curried tx.add",
+      "DeepBookClient option is `network` not `env`",
+      "Navi SUI assetId=0, native USDC assetId=10 (1=bridged, avoid); repayCoinPTB(tx,id,coin,{amount}), withdrawCoinPTB(tx,id,amount)->Coin; global-storage no accountCap",
+      "Native USDC 0xdba34672...::usdc::USDC (6dp) VERIFIED x4; wormhole 0x5d4b3025...::coin::COIN AVOID",
+      "Pyth SUI/USD 0x23d73151..., USDC/USD 0xeaa020c6...; Pyth State 0x1f931023..., Wormhole State 0xaeab97f9... (Suilend refreshAll handles Pyth internally)"
+    ],
+    "unverified_patterns": [
+      "DeepBook constants pinned to HEAD — verify installed constants.js before paste",
+      "No standalone open-source repo pins the exact Suilend one-PTB sequence in one file (source+Move+looping-precedent is the evidence)"
+    ],
+    "assumed_patterns": [
+      "Navi poolIds (0x2cab9b... SUI / 0xe1206114... USDC) — re-confirm",
+      "Suilend package id (runtime-derived from UpgradeCap 0x3d4ef185...)"
+    ]
+  },
+  "project_type": "full-stack",
+  "project_type_rationale": "Next.js + dapp-kit frontend + TS PTB-composition library + headless Node scripts; on-chain integration with 3 live protocols; ZERO net-new Move (hasContracts=false). User flows: wallet connect, view position, one-click refinance.",
+  "scope_mode": "rush",
+  "timeline": {
+    "today": "2026-06-17",
+    "deadline": "2026-06-20T16:00:00Z",
+    "days_remaining": 3,
+    "build_days": 2.5,
+    "reserve": "Day 3 = demo video + submission"
+  },
+  "phase_ledger": [
+    {
+      "phase": "phase_0",
+      "started_at": "2026-06-17T11:53:00Z",
+      "completed_at": "2026-06-17T11:54:30Z",
+      "evidence": "refirail/ created; warroom+research copied; concerns from concerns-snapshot-V2.md; WINNER-BRIEF Thesis loaded (6 fields); stack=Full-Stack Web TS; scope=rush; no conductor-state (standalone)."
+    },
+    {
+      "phase": "phase_0a",
+      "started_at": "2026-06-17T11:54:30Z",
+      "completed_at": "2026-06-17T11:54:30Z",
+      "evidence": "SKIPPED: source=warroom (winner from deliberation, not direct input)."
+    },
+    {
+      "phase": "phase_0b",
+      "started_at": "2026-06-17T11:55:00Z",
+      "completed_at": "2026-06-17T12:05:00Z",
+      "evidence": "3 parallel agents read npm tarballs+Move source. All 3 SDKs + coin types + Pyth ids VERIFIED. Native USDC confirmed x4. Hero PTB (10 cmds) locked. Written to refirail/TECHNICAL-SPIKE.md. ASSUMED items routed to runtime-resolution + Day-1 gate."
+    },
+    {
+      "phase": "phase_1",
+      "started_at": "2026-06-17T12:05:00Z",
+      "completed_at": "2026-06-17T12:20:00Z",
+      "evidence": "refirail/PRD.md (462 lines), 10 sections + 7.5/7.6. PRD gate 6/6 PASS (Components 15=15, Flows 4=4, API-risk 3=3, [C]-concerns 10=10, impl-code 0, risks 12). THESIS-1/2 PASS."
+    },
+    {
+      "phase": "phase_1_5",
+      "started_at": "2026-06-17T12:20:00Z",
+      "completed_at": "2026-06-17T12:20:00Z",
+      "evidence": "SKIPPED-AUTO: autonomous mode, gate passed, no PAUSE."
+    },
+    {
+      "phase": "phase_2",
+      "started_at": "2026-06-17T12:20:00Z",
+      "completed_at": "2026-06-17T12:50:00Z",
+      "evidence": "refirail/ARCHITECTURE.md (1680 lines), 30 complete copy-exact code files, zero net-new Move. Arch gate 10/10 PASS. Hero PTB composer + 3 adapters + server-build/client-sign + floor + scripts + frontend. All constants source-verified."
+    },
+    {
+      "phase": "phase_2_5",
+      "started_at": "2026-06-17T12:50:00Z",
+      "completed_at": "2026-06-17T12:52:00Z",
+      "evidence": "Cross-doc PRD<->ARCH 4/4 PASS (components 15/15, API match, types match, risk-tag align). THESIS-3 (hero spine) + THESIS-4 (demo round-trip) PASS. SKIPPED-AUTO PAUSE."
+    },
+    {
+      "phase": "phase_3",
+      "started_at": "2026-06-17T12:52:00Z",
+      "completed_at": "2026-06-17T13:10:00Z",
+      "evidence": "refirail/PLAN.md (853 lines). 6 phases + FLOOR (2F). Plan gate 7/7 PASS (file-coverage 30/30, 18 decision trees>=7 risks, 6 gates, all commits, no vague, time 2.5<=2.5). Day-1 dryRun gate + floor pivot. Winning-pattern step mapping."
+    },
+    {
+      "phase": "phase_3_5",
+      "started_at": "2026-06-17T13:10:00Z",
+      "completed_at": "2026-06-17T13:12:00Z",
+      "evidence": "Full cross-doc audit 9/9 PASS. THESIS-1..5 all PASS. SKIPPED-AUTO PAUSE."
+    },
+    {
+      "phase": "phase_4",
+      "started_at": "2026-06-17T13:12:00Z",
+      "completed_at": "2026-06-17T13:15:00Z",
+      "evidence": "status=complete. Wrote {working_dir}/.env.example (6 vars), refirail/FEATURE-OBSERVABLES.md (7 observables F-001..F-007), PULSE forge section + 4 VF entries, pipeline-log COMPLETE. project_type=full-stack. No conductor-state (standalone) -> no conductor write-back."
+    }
+  ],
+  "errors": []
+}

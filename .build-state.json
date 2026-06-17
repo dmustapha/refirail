@@ -1,0 +1,28 @@
+{
+  "project": "refirail",
+  "currentPhase": "phase-0",
+  "currentStep": "0.1",
+  "currentSubStep": "0.1.a",
+  "status": "in-progress",
+  "autonomous_mode": true,
+  "expected_phases": ["phase-0", "phase-1", "phase-2", "phase-3", "phase-4"],
+  "completedSteps": [],
+  "fileGroups": {},
+  "deviations": [],
+  "phaseExecutors": {},
+  "contractAddresses": {},
+  "env": {},
+  "devPort": 3000,
+  "depsVerified": false,
+  "verification_commands": [],
+  "screenshot_paths": [],
+  "context_percentage": 0,
+  "preverify": {
+    "deepbook_v3_resolved": "1.5.0",
+    "mysten_sui_resolved": "2.18.0",
+    "suilend_sdk": "3.0.4",
+    "navi_lending": "1.4.6",
+    "endpoints_live": true
+  },
+  "timestamp": "2026-06-17T14:10:00Z"
+}
