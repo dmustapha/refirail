@@ -5,7 +5,12 @@ Builder: hackathon-build skill (in-session orchestrator; pipeline run in order, 
 ## Summary
 | Phase | Steps | Status | Notes |
 |-------|-------|--------|-------|
-| 0 Scaffold & Setup | 0.1–0.4 | complete (commit 3230fa3) | manual scaffold; sui pinned to v2 for suilend peer; wallet generated, AWAITING FUNDING |
+| 0 Scaffold & Setup | 0.1–0.4 | complete (3230fa3) | manual scaffold; sui pinned to v2 for suilend peer; wallet funded ~1.94 SUI |
+| 1 Day-1 Gate | 1.1–1.9 | **complete — GATE GREEN (a40f4ab + gate)** | Suilend init live; isolated leg GREEN; real Navi position opened (BWSP7...); **full refinance dryRun GREEN → HEADLINE, not floor**. 1.10 seed pending. |
+| 3 Frontend+API (ahead) | 3.1–3.5,3.7 | complete (54a1ce5) | built ahead of funds; tsc clean; /api/position reads real position; deploy 3.6 deferred to pipeline deploy phase |
+
+### 🎯 DAY-1 GATE RESULT (Task 1.9): GREEN
+Full cross-protocol atomic refinance dry-runs green on live mainnet. SUI net = −gas only (collateral atomically Navi→Suilend), USDC net = +0.0009 (buffer remainder swept). ObligationOwnerCap threads + transfers (RISK 4 sound). **Decision: build the headline. FLOOR (Phase 2F) not needed.**
 
 ## Deviations from Architecture
 | ID | Component | ARCHITECTURE Said | ACTUAL | Reason | Class | Downstream Impact |
@@ -49,6 +54,8 @@ Builder: hackathon-build skill (in-session orchestrator; pipeline run in order, 
 - DEV-007/003 peer mismatch: suilend wants sui@2.17.0/pyth@2.2.0, installed 2.18.0/3.0.0. If funded dryRun throws a Pyth/refresh type/runtime mismatch → downpin. Lockfile committed for reproducibility.
 - Suilend init proven live pre-funding; the remaining #1 unknown is the in-PTB Pyth refresh + borrow guard on a FRESH same-PTB obligation (Task 1.3 isolated dryRun) — needs funds.
 - Minor: inline `tsx -e` dynamic-import smoke tests are flaky for namespace exports; use a probe file (orchestrator did).
+- **HIGH (demo reliability): Suilend gRPC init intermittently throws** `RpcError: fetch failed` / `Cannot read properties of undefined (reading 'package')` (Pyth getPackageId). The dryRun SCRIPT has a 3x retry wrapper, but **`lib/refinance.ts`/`/api/preview` do NOT** — the live demo preview can fail intermittently. **Wire/polish action: move the retry wrapper into the shared lib path (initSuilend / buildRefinancePTB) so `/api/preview` is resilient.**
+- **DEMO SEQUENCING + BUDGET: Task 2.2 real execute MOVES the position Navi→Suilend, consuming the demo "before" state.** After execute, ~0.86 SUI free + 1 SUI locked in Suilend. The Phase 4 demo needs a Navi position to show the live move → either top up ~1 SUI, or withdraw the Suilend collateral and re-open on Navi (seed-demo). Flagged for demo phase.
 
 ## Contract Addresses
 (N/A — zero net-new Move; no contracts deployed)
