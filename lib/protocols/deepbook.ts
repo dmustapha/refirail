@@ -39,22 +39,33 @@ export function appendFlashRepayUSDC(
 }
 
 // FLOOR ONLY: swap SUI (base) -> USDC (quote) through the SUI_USDC pool.
-// WARNING: UNVERIFIED method name/shape — confirm against installed @mysten/deepbook-v3
-// (likely `db.deepBook.swapExactBaseForQuote({ poolKey, amount, deepAmount, minOut })`).
-// See PLAN Phase 2 floor decision tree. Returns [usdcOut, suiRemainder, deepRemainder].
+// DEV-018 (UNTESTED→VERIFIED): swap method shape confirmed against @mysten/deepbook-v3@1.5.0
+// (node_modules/.../transactions/deepbook.ts:751 + types SwapParams). Two corrections vs the
+// ARCHITECTURE sketch:
+//   1. The coin handle goes in `baseCoin` (TransactionObjectArgument), NOT `amount`. `amount`
+//      is a numeric quantity the SDK would otherwise use to MINT a fresh base coin via
+//      coinWithBalance — passing our withdrawn SUI coin there is the wrong shape. With `baseCoin`
+//      supplied, the SDK consumes it directly (amount is ignored for the input coin).
+//   2. The call returns THREE results — [baseRemainder, quoteOut(USDC), deepRemainder] — target
+//      `pool::swap_exact_base_for_quote`. We hand back the USDC (index 1) plus the leftovers so
+//      the caller can repay the flash loan and sweep the dust.
+// This is the SECOND DeepBook primitive (a market spot swap), distinct from the hero's fee-free
+// flash borrow/return (pool::borrow_flashloan_quote / return_flashloan_quote).
+// SUI_USDC is a whitelisted pool → 0 DEEP fee, so deepAmount: 0 (zero-balance DEEP coin) is fine.
 export function appendSwapSuiToUsdc(
   db: DeepBookClient,
   tx: Transaction,
   suiCoin: TransactionResult,
   minUsdcOutHuman = 0,
-): TransactionResult {
-  const out = tx.add(
+): { usdcOut: TransactionResult; suiRemainder: TransactionResult; deepRemainder: TransactionResult } {
+  const [suiRemainder, usdcOut, deepRemainder] = tx.add(
     db.deepBook.swapExactBaseForQuote({
       poolKey: DEEPBOOK.POOL_KEY,
-      amount: suiCoin,
-      deepAmount: 0,
+      amount: 0, // unused: baseCoin is supplied, so the SDK does not mint a base coin
+      deepAmount: 0, // whitelisted pool → no DEEP fee
       minOut: minUsdcOutHuman,
-    } as never),
-  ) as unknown as TransactionResult;
-  return out;
+      baseCoin: suiCoin as never,
+    }),
+  ) as unknown as [TransactionResult, TransactionResult, TransactionResult];
+  return { usdcOut, suiRemainder, deepRemainder };
 }
