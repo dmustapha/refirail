@@ -2,7 +2,7 @@
 import { Transaction } from "@mysten/sui/transactions";
 import type { SuiClient } from "./clients";
 import { makeDeepBook, appendFlashBorrowUSDC, appendFlashRepayUSDC } from "./protocols/deepbook";
-import { appendNaviRepayUSDC, appendNaviWithdrawSUI } from "./protocols/navi";
+import { appendNaviRepayUSDC, appendNaviWithdrawSUI, appendNaviOracleRefresh } from "./protocols/navi";
 import { initSuilend, appendSuilendDepositBorrow } from "./protocols/suilend";
 import { computeFlashAmounts } from "./amounts";
 import { COINS } from "./config";
@@ -27,6 +27,11 @@ export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction
 
   // 1. flash-borrow USDC (fee-free) from DeepBook SUI_USDC (USDC = quote)
   const [flashUsdc, flashLoan] = appendFlashBorrowUSDC(db, tx, flashHuman);
+
+  // 1b. DEV-016: refresh Navi's SUI+USDC oracle prices BEFORE the Navi repay/withdraw, so
+  // `incentive_v3::withdraw_v2`'s `calculator::calculate_value` sees fresh prices and does not
+  // abort 1502 on a stale-oracle race (see lib/protocols/navi.ts appendNaviOracleRefresh).
+  await appendNaviOracleRefresh(tx, p.sender);
 
   // 2. repay the Navi USDC debt fully with the flash proceeds (excess refunds to sender)
   await appendNaviRepayUSDC(tx, flashUsdc, flashAtomic);

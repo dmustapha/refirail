@@ -5,8 +5,24 @@ import {
   withdrawCoinPTB,
   flashloanPTB,
   repayFlashLoanPTB,
+  getPool,
+  updateOraclePriceBeforeUserOperationPTB,
 } from "@naviprotocol/lending";
 import { NAVI } from "../config";
+
+// DEV-016 (UNTESTED→fix): the live refinance reverted with Navi `calculator::calculate_value`
+// abort 1502 on `incentive_v3::withdraw_v2` (command 2). Reproduced INTERMITTENTLY in dryRun too
+// (2 of 3 runs failed with the identical 1502, 1 passed) — i.e. not debt drift, not a structural
+// bug, but a Navi ORACLE-STALENESS race: `withdraw_v2` revalues the account against Navi's oracle,
+// and aborts when the SUI/USDC price is stale at execution time. Suilend has its own
+// `refresh_reserve_price` calls; Navi's withdraw had none. Fix: prepend Navi's own oracle refresh
+// (`updateOraclePriceBeforeUserOperationPTB`) for the SUI + USDC pools before the repay/withdraw,
+// making `calculate_value` deterministic. Pure prefix calls — no change to the repay/withdraw legs.
+export async function appendNaviOracleRefresh(tx: Transaction, sender: string): Promise<void> {
+  const suiPool = await getPool(NAVI.SUI_ASSET_ID);
+  const usdcPool = await getPool(NAVI.USDC_ASSET_ID);
+  await updateOraclePriceBeforeUserOperationPTB(tx as never, sender, [suiPool, usdcPool] as never);
+}
 
 // DEV-006 (COSMETIC): @naviprotocol/lending@1.4.6 bundles its OWN nested @mysten/sui@1.45.2 (v1 API),
 // whose `Transaction` is nominally distinct from our root @mysten/sui@2.18.0 `Transaction`
