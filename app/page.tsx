@@ -15,18 +15,27 @@ export default function Home() {
   const account = useCurrentAccount();
   const address = account?.address || DEMO;
   const [pos, setPos] = useState<PositionView | null>(null);
+  const [posLoading, setPosLoading] = useState(true);
+  const [posError, setPosError] = useState(false);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [digest, setDigest] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!address) return;
-    fetch(`/api/position?address=${address}`).then((r) => r.json()).then(setPos).catch(() => {});
+    setPosLoading(true);
+    setPosError(false);
+    fetch(`/api/position?address=${address}`)
+      .then((r) => r.json())
+      .then(setPos)
+      .catch(() => setPosError(true))
+      .finally(() => setPosLoading(false));
   }, [address]);
 
   async function doPreview() {
     if (!pos?.hasPosition || !pos.collateral || !pos.debt) return;
     setLoading(true);
+    setPreview(null);
     try {
       const body = {
         address,
@@ -37,6 +46,8 @@ export default function Home() {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
       });
       setPreview(await r.json());
+    } catch {
+      setPreview({ ok: false, abortReason: "Could not reach the simulator — try again.", balanceChanges: [] });
     } finally {
       setLoading(false);
     }
@@ -50,7 +61,11 @@ export default function Home() {
         <ConnectButton />
       </header>
 
-      {pos && <PositionCard p={pos} />}
+      {posLoading && <div className="card muted">Loading your position…</div>}
+      {!posLoading && posError && (
+        <div className="card muted">Couldn’t load your position. Check your connection and refresh.</div>
+      )}
+      {!posLoading && !posError && pos && <PositionCard p={pos} />}
 
       <div className="actions">
         <button className="ghost" disabled={!pos?.hasPosition || loading} onClick={doPreview}>

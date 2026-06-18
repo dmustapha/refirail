@@ -3,15 +3,21 @@ import type { Transaction, TransactionResult } from "@mysten/sui/transactions";
 import { SuilendClient } from "@suilend/sdk";
 import { makeSuiGrpcClient } from "../clients";
 import { SUILEND } from "../config";
+import { withRetry } from "../retry";
 
 export async function initSuilend(): Promise<SuilendClient> {
-  const grpc = makeSuiGrpcClient();
-  // 3.0.x: 4th arg is a SuiGrpcClient, NOT SuiClient.
-  return SuilendClient.initialize(
-    SUILEND.LENDING_MARKET_ID,
-    SUILEND.LENDING_MARKET_TYPE,
-    grpc as never,
-  );
+  // DEV-019: gRPC init intermittently throws "RpcError: fetch failed". Retry the SHARED path so
+  // both /api/preview and the scripts survive a transient blip. A fresh grpc client per attempt
+  // avoids reusing a half-broken transport.
+  return withRetry(() => {
+    const grpc = makeSuiGrpcClient();
+    // 3.0.x: 4th arg is a SuiGrpcClient, NOT SuiClient.
+    return SuilendClient.initialize(
+      SUILEND.LENDING_MARKET_ID,
+      SUILEND.LENDING_MARKET_TYPE,
+      grpc as never,
+    );
+  });
 }
 
 // Create a fresh obligation, deposit the (already-held) SUI coin, refresh BOTH reserve prices,
@@ -34,7 +40,11 @@ export async function appendSuilendDepositBorrow(
   client.deposit(args.suiCoin, args.collateralType, cap, tx);
 
   // 3. Pyth update + refresh BOTH reserves (handles getPriceFeedsUpdateData + updatePriceFeeds + refreshReservePrices)
-  await client.refreshAll(tx, undefined, [args.collateralType, args.debtType]);
+  // DEV-019: refreshAll hits Pyth's getPackageId, which intermittently throws
+  // "Cannot read properties of undefined (reading 'package')" on a transient gRPC blip. Retry the
+  // gRPC fetch ONLY — the PTB-mutating effect is idempotent for a fresh tx within buildRefinancePTB's
+  // wholesale retry, and a non-transient error still surfaces immediately.
+  await withRetry(() => client.refreshAll(tx, undefined, [args.collateralType, args.debtType]));
 
   // 4. borrow USDC. obligationId "" + addRefreshCalls=false are MANDATORY for a fresh same-PTB obligation.
   const borrowedCoin = (await client.borrow(

@@ -18,14 +18,30 @@ export async function POST(req: Request) {
   if (!address || !debtAtomic || !collateralAtomic) {
     return NextResponse.json({ ok: false, abortReason: "missing params" }, { status: 400 });
   }
+  // DEV-019 (ARCHITECTURE §18 Layer 1): validate inputs up front so malformed input is a clean 400
+  // (client error), reserving 503 for real downstream/RPC failures. A Sui address is 0x + 64 hex.
+  if (typeof address !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(address)) {
+    return NextResponse.json({ ok: false, abortReason: "invalid address" }, { status: 400 });
+  }
+  let debt: bigint, collateral: bigint, buffer: number | undefined;
+  try {
+    debt = BigInt(debtAtomic);
+    collateral = BigInt(collateralAtomic);
+    buffer = bufferBps != null ? Number(bufferBps) : undefined;
+    if (debt <= 0n || collateral <= 0n || (buffer != null && !Number.isFinite(buffer))) {
+      throw new Error("non-positive or non-finite amount");
+    }
+  } catch {
+    return NextResponse.json({ ok: false, abortReason: "invalid amount" }, { status: 400 });
+  }
   try {
     const suiClient = makeSuiClient();
     const tx = await buildRefinancePTB({
       sender: address,
       suiClient,
-      debtAtomic: BigInt(debtAtomic),
-      collateralAtomic: BigInt(collateralAtomic),
-      bufferBps: bufferBps != null ? Number(bufferBps) : undefined,
+      debtAtomic: debt,
+      collateralAtomic: collateral,
+      bufferBps: buffer,
     });
     const sim = await simulateRefinance(suiClient, tx, address);
     let txB64: string | undefined;
