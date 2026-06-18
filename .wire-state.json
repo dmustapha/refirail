@@ -4,18 +4,93 @@
   "autonomous_mode": true,
   "project_type": "full-stack",
   "timestamp": "2026-06-18T00:45:00Z",
-  "topology": { "totalComponents": 5, "totalConnections": 7 },
-  "credentials": { "total": 4, "resolved": 4, "unresolved": 0, "mockFlagsActive": 0, "unresolvedList": [] },
-  "integrationResults": {
-    "total": 6, "passed": 6, "partial": 0, "failed": 0, "skipped": 0,
-    "onChainProof": "BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK",
-    "protocolsProven": ["DeepBook(pool flash)", "Navi(incentive_v3+oracle_pro)", "Suilend(lending_market)", "Pyth(refreshAll)"]
+  "topology": {
+    "totalComponents": 5,
+    "totalConnections": 7
   },
-  "demoFlowTest": { "status": "PARTIAL", "endpoint": "/api/preview", "notes": "structured ok:false — honest no-Navi-position (refinanced to Suilend); healthy path gated on demo re-seed" },
-  "floorSwap": { "status": "METHOD-VERIFIED", "note": "swap_exact_base_for_quote resolves; fill needs DEEP on non-whitelisted SUI_USDC pool; NOT on-chain-executed (do not overclaim)" },
+  "credentials": {
+    "total": 4,
+    "resolved": 4,
+    "unresolved": 0,
+    "mockFlagsActive": 0,
+    "unresolvedList": []
+  },
+  "integrationResults": {
+    "total": 6,
+    "passed": 6,
+    "partial": 0,
+    "failed": 0,
+    "skipped": 0,
+    "onChainProof": "BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK",
+    "protocolsProven": [
+      "DeepBook(pool flash)",
+      "Navi(incentive_v3+oracle_pro)",
+      "Suilend(lending_market)",
+      "Pyth(refreshAll)"
+    ]
+  },
+  "demoFlowTest": {
+    "status": "PARTIAL",
+    "endpoint": "/api/preview",
+    "notes": "structured ok:false \u2014 honest no-Navi-position (refinanced to Suilend); healthy path gated on demo re-seed"
+  },
+  "floorSwap": {
+    "status": "METHOD-VERIFIED",
+    "note": "swap_exact_base_for_quote resolves; fill needs DEEP on non-whitelisted SUI_USDC pool; NOT on-chain-executed (do not overclaim)"
+  },
   "async_operations": [
-    { "name": "/api/preview dryRun (3-SDK PTB build + mainnet dryRun)", "trigger_endpoint": "POST /api/preview", "latency_ms": 9000, "latency_observed_range_ms": "9000-177000", "latency_category": "SLOW", "requires_demo_wait_guidance": true, "estimated_wait_seconds": 15, "mitigation": "keyed SUI_GRPC_URL/SUI_RPC_URL (Alchemy) to stabilize" }
+    {
+      "name": "/api/preview dryRun (3-SDK PTB build + mainnet dryRun)",
+      "trigger_endpoint": "POST /api/preview",
+      "latency_ms": 9000,
+      "latency_observed_range_ms": "9000-177000",
+      "latency_category": "SLOW",
+      "requires_demo_wait_guidance": true,
+      "estimated_wait_seconds": 15,
+      "mitigation": "keyed SUI_GRPC_URL/SUI_RPC_URL (Alchemy) to stabilize"
+    }
   ],
   "blockers": [],
-  "phase": { "discovery":"complete","credentials":"complete","dependencies":"complete","integration":"complete","fix_retest":"complete","demoFlow":"complete","privacy_audit":"skipped","isolation_test":"skipped","async_latency":"complete","report":"complete" }
+  "phase": {
+    "discovery": "complete",
+    "credentials": "complete",
+    "dependencies": "complete",
+    "integration": "complete",
+    "fix_retest": "complete",
+    "demoFlow": "complete",
+    "privacy_audit": "skipped",
+    "isolation_test": "skipped",
+    "async_latency": "complete",
+    "report": "complete"
+  },
+  "subSteps_4x": {
+    "4.2b_seed_landing": {
+      "seedScript": "exists",
+      "landingContent": "227 words SSR, hero+value-prop present",
+      "note": "position card empty until re-seed (F-006 pending)"
+    },
+    "4.2c_explorer": [
+      {
+        "digest": "BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK",
+        "rpc": "resolves",
+        "suiscan": 200
+      },
+      {
+        "digest": "BWSP7BJgsidZRvD3AEAQ26x5awwTkbJpxUVwJ8Z9Y2bR",
+        "rpc": "resolves",
+        "suiscan": 200
+      }
+    ],
+    "4.2d_sentinel": {
+      "hits": 0,
+      "note": "ok:false is real Move abort 1602, not fallback; F-002/F-006 PENDING re-seed (untestable, not failing)"
+    },
+    "4.2e_authorization": {
+      "mutating_endpoints": 0,
+      "auth_gaps": [],
+      "note": "authz = Sui owned-object model + client wallet sig; API auth tests N/A by design"
+    }
+  },
+  "sentinel_hits": [],
+  "auth_gaps": []
 }

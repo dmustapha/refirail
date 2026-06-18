@@ -42,6 +42,12 @@ No API keys required (all protocols public). 0 mock flags. No unresolved credent
 | GET /api/position | PASS | 7.1s | 200, structured (reads real on-chain state) |
 | POST /api/preview | PASS (structured ok:false) | 9.0s | honest no-Navi-position abort; gRPC-retry kept it resilient |
 
+## Phase 4 Sub-Steps (run to full extent)
+- **4.2b Seed + landing:** `seed-demo.ts` exists; landing page renders real product content (227 words SSR — hero + value-prop copy present). The position *card* shows the guided empty state until demo re-seed (F-006 pending), but the page itself is content-rich, not blank.
+- **4.2c Explorer links:** both tx digests (`BiMBPK7…`, `BWSP7…`) resolve via RPC (authoritative) + Suiscan HTTP 200. Object links (DeepBook pkg `0x0e735f8c…`, SUI_USDC pool `0xe05dafb5…`) are real on-chain ids used in the live tx. No dead links.
+- **4.2d Sentinel check:** no mock/fake/stub/fallback strings in live responses. `/api/preview` `ok:false` is a real on-chain Move abort (1602 execute_repay — no Navi debt), NOT a fallback. F-002 (healthy preview) + F-006 (first-paint hasPosition:true) are UNTESTABLE now (no Navi position — re-seed deferred), classified PENDING, not failing.
+- **4.2e Authorization:** no mutating server-state endpoints. `/api/position` = read-only GET (public data); `/api/preview` = POST that builds+dryRuns+returns bytes (no server mutation, no signing). Authorization is enforced by the Sui owned-object model (PTB sender must own the position) + client-side wallet signature. API auth tests N/A by design. No auth gaps.
+
 ## Phase 5.5 Privacy Audit — SKIPPED (no FHE/ZK/confidential keywords; RefiRail is a public DeFi tool)
 ## Phase 5.6 Isolation Test — SKIPPED (no private-data isolation claim; on-chain positions are public by design, read by address)
 ## Phase 5.7 Async Latency — /api/preview dryRun: 9–177s observed (MEDIUM→SLOW). **Demo needs explicit wait guidance OR a keyed SUI_GRPC_URL/SUI_RPC_URL (Alchemy) to stabilize.** Carried to demo_rehearsal + deploy.
