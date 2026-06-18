@@ -1,0 +1,75 @@
+{
+  "version": 3,
+  "status": "complete",
+  "currentPhase": "complete",
+  "tier": "B",
+  "timestamp": "2026-06-18T17:05:00Z",
+  "expected_phases": ["identity", "tokens", "port", "refine"],
+  "decisions": {
+    "startingPoint": "existing-nextjs",
+    "industry": "DeFi — institutional on-chain finance (lending refinance)",
+    "dials": { "DV": 3, "MI": 4, "VD": 5 },
+    "winningVariation": "n/a (Tier B restraint pass — token system + craft floor applied to existing codebase; no variations/selection)",
+    "fontPairing": ["DM Serif Display", "IBM Plex Mono"],
+    "colorPalette": { "primary": "#4DA2FF", "accent": "#4DA2FF", "background": "#060A12", "surface": "#0C131E" },
+    "shadowPhilosophy": "pure-glow",
+    "signatureElement": "the Rail — aqua rail under the wordmark (first viewport) + Navi→Suilend travelling-dot rail in BeforeAfterPanel",
+    "colorMode": "dark",
+    "tailwind": false,
+    "paletteSource": "user-selected (Sui-native aqua) via identity question"
+  },
+  "artifacts": {
+    "variations": [],
+    "references": "n/a (Tier B skips research)",
+    "screenshots": [
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/before/before-desktop.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/before/before-mobile.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/after/after-desktop.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/after/after-preview.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/after/after-mobile.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/refine/hover-state.png",
+      "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/refine/focus-state.png"
+    ],
+    "designBrief": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/DESIGN_BRIEF.md",
+    "brand": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/brand.json"
+  },
+  "designSystem": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/DESIGN_SYSTEM.md",
+  "craftAudit": { "pass": true, "violations": [] },
+  "parityFloor": {
+    "note": "Tier B has no mockup parity baseline (no variations). Counts below are net-new craft added to the existing codebase, recorded for the gate.",
+    "boxShadow": { "mockup": 0, "shipped": 12 },
+    "inset": { "mockup": 0, "shipped": 8 },
+    "hoverTransform": { "mockup": 0, "shipped": 8 },
+    "focusVisible": { "mockup": 0, "shipped": 2 },
+    "clamp": { "mockup": 0, "shipped": 4 },
+    "justifications": ["Tier B: no winning mockup exists; shipped > 0 for every signal (was 0 before this pass)."]
+  },
+  "personaCritique": {
+    "iterations": 1,
+    "grades": { "designCritic": "B", "technicalReviewer": "A", "user": "B", "zeroContextIdentifier": "PASS" },
+    "ctaFindability": "PASS (zero-context agent identified product + first click from hero alone)",
+    "fixesApplied": [
+      "strengthened the Rail signature (thicker/glowing wordmark rail + louder panel rail/nodes/dot)",
+      "disabled CTA now inert surface (was reading as a glowing 'ready' aqua); primary CTA given visual dominance via flex",
+      "--muted bumped #8A9AB0 -> #9DADC4 for WCAG AA (4.5:1) on surface",
+      "APR rows get non-color direction cues (up/down arrows) for colorblind a11y",
+      "PreviewPanel inline style folded into .tag.note class"
+    ],
+    "deferredHonestData": "User flagged '$0.01/year' savings as underwhelming — this is REAL on-chain data from the tiny demo position (0.30 USDC). Not fabricated (INVARIANT 3 / TASTE U7). Routed to demo phase as a Downstream Item (consider a larger demo position)."
+  },
+  "preservedContracts": {
+    "ptbCore": "untouched (lib/* not modified)",
+    "apiRoutes": "untouched (app/api/* not modified)",
+    "dataContract": "PositionView / PreviewResult consumed as-is",
+    "elevations": { "E-1": "PreviewPanel fee-$0 row intact", "E-3": "BeforeAfterPanel $/yr savings intact", "E-2_E-4": "README/sponsor-tracks (not UI surface)" }
+  },
+  "phase_ledger": [
+    { "phase": "identity", "completed_at": "2026-06-18T16:35:00Z", "evidence": "Tier B detected (existing Next.js, no conductor, pipeline_run=false). User selected Sui-native aqua via identity question. DESIGN_BRIEF.md written. Taste corpus loaded (4 files + ronin)." },
+    { "phase": "tokens", "completed_at": "2026-06-18T16:45:00Z", "evidence": "brand.json + DESIGN_SYSTEM.md written (5 sections, pure-glow declared). One-hue aqua derivative system + surface elevation + radius/type/spacing scales." },
+    { "phase": "port", "completed_at": "2026-06-18T16:56:00Z", "evidence": "globals.css rewritten to token system + primitives + Rail + radial glow + hover/focus + reduced-motion. DM Serif Display + IBM Plex Mono via next/font. 5 components restyled, data contract + E-1/E-3 preserved. tsc 0, next build 0." },
+    { "phase": "refine", "completed_at": "2026-06-18T17:05:00Z", "evidence": "audit.js: No violations found (exit 0, craftAudit.pass=true). before/after/hover/focus/mobile screenshots captured. 4-agent persona critique → 1 fix iteration (5 in-scope fixes). tsc 0, build 0 re-verified." }
+  ],
+  "autonomous_mode": false,
+  "context_percentage": 47,
+  "pipeline_run": false
+}

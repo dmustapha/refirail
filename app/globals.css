@@ -1,20 +1,350 @@
-/* File: app/globals.css */
-:root { --bg:#0b0e14; --card:#141a24; --good:#39d98a; --bad:#ff6b6b; --fg:#e6edf3; --muted:#8b97a7; }
+/* File: app/globals.css — RefiRail design system (Tier-B craft floor) */
+/* World: institutional on-chain finance, settlement on rails, Sui-native.        */
+/* One brand hue (Sui aqua) + opacity derivatives. Shadow philosophy: pure-glow.  */
+
+:root {
+  /* ── Brand (one hue, derivative system) ── */
+  --brand:        #4DA2FF;
+  --brand-soft:   rgba(77, 162, 255, 0.55);  /* interactive / selected fills */
+  --brand-glow:   rgba(77, 162, 255, 0.32);  /* borders, rings, focal glow   */
+  --brand-faint:  rgba(77, 162, 255, 0.12);  /* section tints, rail track     */
+  --brand-dim:    rgba(77, 162, 255, 0.06);  /* barely-there texture          */
+
+  /* ── Surface elevation (dark — depth via bg steps, not invisible shadows) ── */
+  --bg:          #060A12;
+  --surface:     #0C131E;
+  --surface-2:   #131C2B;
+  --border:      rgba(255, 255, 255, 0.07);
+  --border-hot:  rgba(77, 162, 255, 0.22);
+  --inset-top:   inset 0 1px 0 rgba(255, 255, 255, 0.05);  /* material top-edge catch */
+
+  /* ── Text (--muted ≥ AA 4.5:1 on --surface) ── */
+  --fg:     #E6EEF8;
+  --muted:  #9DADC4;
+
+  /* ── Status (semantic only — not a second accent) ── */
+  --status-ok:     #4ade80;
+  --status-danger: #f87171;
+  --status-warn:   #fbbf24;
+  --ok-faint:      rgba(74, 222, 128, 0.12);
+
+  /* ── Focal glows (pure-glow doctrine — reserved for ≤2 elements/viewport) ── */
+  --glow-cta: 0 0 0 1px var(--brand-glow), 0 10px 32px rgba(77, 162, 255, 0.20);
+  --glow-ok:  0 0 0 1px rgba(74, 222, 128, 0.30), 0 0 28px rgba(74, 222, 128, 0.14);
+
+  /* ── Radius scale (CF-1) ── */
+  --radius-sm:   8px;    /* controls, badges */
+  --radius-md:   14px;   /* cards */
+  --radius-lg:   20px;   /* hero / success */
+  --radius-full: 999px;  /* pills, rail */
+
+  /* ── Type scale (CF-6) ── */
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-hero: clamp(2.5rem, 7vw, 3.6rem);
+  --text-lg:   clamp(1.02rem, 2.4vw, 1.2rem);
+  --text-base: 0.95rem;
+  --text-sm:   0.8rem;
+  --text-xs:   0.72rem;
+
+  /* ── Spacing ── */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --maxw: 540px;
+}
+
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 ui-sans-serif,system-ui,-apple-system; }
-.wrap { max-width: 520px; margin: 0 auto; padding: 32px 16px; display:flex; flex-direction:column; gap:16px; }
-.hero h1 { font-size: 40px; margin: 0; letter-spacing:-0.02em; }
-.hero p { color: var(--muted); }
-.card { background:var(--card); border:1px solid #1f2734; border-radius:14px; padding:16px; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Background world: single aqua radial focal glow, aligned to hero ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 90% 55% at 50% -5%,
+    var(--brand-faint) 0%,
+    var(--brand-dim) 34%,
+    transparent 66%
+  );
+}
+
+/* ── Layout ── */
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: clamp(40px, 9vh, 88px) var(--sp-4) 64px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Hero ── */
+.hero { display: flex; flex-direction: column; gap: var(--sp-3); }
+.hero h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--text-hero);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--fg);
+}
+/* the Rail — first-viewport signature: aqua track + glowing terminal node */
+.hero-rail {
+  position: relative;
+  height: 3px;
+  width: clamp(150px, 38%, 248px);
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-glow) 70%, var(--brand-faint) 100%);
+  box-shadow: 0 0 12px var(--brand-glow);
+  animation: rail-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: left center;
+}
+.hero-rail::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 50%;
+  width: 9px; height: 9px;
+  transform: translate(50%, -50%);
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 12px var(--brand), 0 0 4px var(--brand);
+}
+.hero p {
+  color: var(--muted);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Card primitive (elevation: surface + hairline + inset top catch) ── */
+.card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  box-shadow: var(--inset-top);
+  animation: enter-settle 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 220ms ease, border-color 220ms ease, transform 220ms ease;
+}
 .card.muted { color: var(--muted); }
-.card.good { border-color: var(--good); }
-.row { display:flex; justify-content:space-between; padding:4px 0; }
-.good { color: var(--good); } .bad { color: var(--bad); }
-.badge { display:inline-block; margin-top:8px; padding:4px 10px; border-radius:999px; background:rgba(57,217,138,.12); }
-.tag { font-size:12px; color:var(--muted); margin-bottom:8px; }
-.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.actions { display:flex; gap:12px; }
-.cta { background:var(--good); color:#06281a; border:0; padding:12px 18px; border-radius:12px; font-weight:700; cursor:pointer; }
-.cta:disabled { opacity:.5; cursor:not-allowed; }
-.ghost { background:transparent; color:var(--fg); border:1px solid #2a3543; padding:12px 18px; border-radius:12px; cursor:pointer; }
-.txlink { color: var(--good); text-decoration:none; font-weight:600; }
+.card.good {
+  border-color: rgba(74, 222, 128, 0.30);
+  box-shadow: var(--glow-ok), var(--inset-top);
+}
+
+/* ── Data rows ── */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--brand-dim);
+}
+.row:last-child { border-bottom: 0; }
+.row > span { color: var(--muted); font-size: var(--text-sm); }
+.row > b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.good { color: var(--status-ok); }
+.bad  { color: var(--status-danger); }
+
+/* ── Badge (save callout) ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  background: var(--ok-faint);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+}
+
+/* ── Micro-label ── */
+.tag {
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--sp-3);
+}
+/* sentence-case note variant (no inline styles in components) */
+.tag.note { text-transform: none; letter-spacing: 0; margin: var(--sp-2) 0 0; }
+
+/* ── Grid (before / after) ── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+.grid2 h4 {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.grid2 p { margin: 2px 0; font-variant-numeric: tabular-nums; }
+
+/* ── Actions (primary CTA dominates; secondary stays compact) ── */
+.actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: stretch; }
+.actions > .ghost { flex: 0 0 auto; }
+.actions > *:last-child { flex: 1 1 200px; }
+.actions > *:last-child .cta { width: 100%; }
+
+/* ── CTA (the one focal glow) ── */
+.cta {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-base);
+  letter-spacing: -0.01em;
+  background: var(--brand);
+  color: #04121F;
+  border: 0;
+  padding: 13px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: var(--glow-cta);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+/* disabled = inert surface (never a glowing "ready" aqua) */
+.cta:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; box-shadow: var(--inset-top); filter: none; }
+
+/* ── Ghost control ── */
+.ghost {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-base);
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border-hot);
+  padding: 13px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Tx link ── */
+.txlink {
+  display: inline-block;
+  margin-top: var(--sp-2);
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+/* ── PreviewPanel balance list ── */
+.card ul { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.card li { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--text-sm); color: var(--muted); }
+.card li code {
+  font-family: var(--font-mono);
+  color: var(--fg);
+  background: var(--brand-dim);
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── The Rail — Navi ●─────● Suilend (BeforeAfterPanel) ── */
+.rail {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.rail-end { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--text-xs); color: var(--muted); white-space: nowrap; }
+.rail-node { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-2); border: 1.5px solid var(--brand-glow); flex: none; }
+.rail-node.active { background: var(--brand); border-color: var(--brand); box-shadow: 0 0 12px var(--brand), 0 0 4px var(--brand); }
+.rail-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--brand-faint), var(--brand-glow), var(--brand-faint));
+}
+.rail-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 10px var(--brand), 0 0 4px var(--brand);
+  transform: translate(-50%, -50%);
+  animation: rail-travel 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* ── Focal value flash (APR / savings update) ── */
+.flash { animation: value-flash 700ms ease-out both; }
+
+/* ── dapp-kit ConnectButton override (no unmodified third-party component) ── */
+.connect button {
+  font-family: var(--font-mono) !important;
+  font-weight: 600 !important;
+  background: var(--surface-2) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border-hot) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--inset-top) !important;
+  transition: transform 150ms ease, border-color 150ms ease !important;
+}
+
+/* ── Interactive depth (CF-4) — hover only where a pointer exists ── */
+@media (hover: hover) {
+  .cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--glow-cta), 0 0 0 1px var(--brand); filter: brightness(1.04); }
+  .ghost:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--brand); background: var(--brand-dim); }
+  .txlink:hover:not(:active) { color: var(--brand-soft); transform: translateX(2px); }
+  .card:hover:not(.muted) { background: var(--surface-2); border-color: var(--border-hot); }
+  .connect button:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--brand) !important; }
+}
+
+/* ── Focus (CF-4) — keyboard users get the same depth language ── */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--radius-sm); }
+.cta:focus-visible { outline-offset: 3px; box-shadow: var(--glow-cta), 0 0 0 3px var(--brand-glow); }
+
+/* ── Motion (MI=4, semantic keyframes, GPU-composited) ── */
+@keyframes enter-settle {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes rail-draw {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+@keyframes rail-travel {
+  from { left: 0%; }
+  to   { left: 100%; }
+}
+@keyframes value-flash {
+  0%   { color: var(--brand); text-shadow: 0 0 10px var(--brand-glow); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .hero-rail { transform: scaleX(1); opacity: 1; }
+  .rail-dot { left: 100%; }
+}

@@ -17,17 +17,20 @@ export function PreviewPanel({ preview }: { preview: PreviewResult | null }) {
   const flashFeeUsd = deepbookFlashFeeUsd(preview);
   return (
     <div className="card">
-      <div className="tag">Simulated against live Sui mainnet — $0, no signature</div>
+      <span className="tag">Simulated against live Sui mainnet — $0, no signature</span>
       {preview.ok ? (
         <>
           <div className="row">
             <span>DeepBook flash loan</span>
             <b className="good">fee ${flashFeeUsd.toFixed(2)}</b>
           </div>
-          <p className="tag">fee-free vs ~0.05–0.09% typical flash fees elsewhere.</p>
+          <p className="tag note">Fee-free, vs ~0.05–0.09% typical flash fees elsewhere.</p>
           <ul>
             {preview.balanceChanges.map((b, i) => (
-              <li key={i}><code>{b.coinType.split("::").pop()}</code>: {b.amount}</li>
+              <li key={i}>
+                <code>{b.coinType.split("::").pop()}</code>
+                <span>{b.amount}</span>
+              </li>
             ))}
           </ul>
         </>

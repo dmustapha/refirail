@@ -57,11 +57,12 @@ export default function Home() {
     <main className="wrap">
       <header className="hero">
         <h1>RefiRail</h1>
+        <div className="hero-rail" aria-hidden="true" />
         <p>Move your loan to a cheaper rate in one click — one atomic transaction, reverts if it would ever hurt you.</p>
-        <ConnectButton />
+        <div className="connect"><ConnectButton /></div>
       </header>
 
-      {posLoading && <div className="card muted">Loading your position…</div>}
+      {posLoading && <div className="card muted">Reading your position on-chain…</div>}
       {!posLoading && posError && (
         <div className="card muted">Couldn’t load your position. Check your connection and refresh.</div>
       )}
