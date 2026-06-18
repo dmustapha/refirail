@@ -28,8 +28,14 @@ export async function POST(req: Request) {
     debt = BigInt(debtAtomic);
     collateral = BigInt(collateralAtomic);
     buffer = bufferBps != null ? Number(bufferBps) : undefined;
-    if (debt <= 0n || collateral <= 0n || (buffer != null && !Number.isFinite(buffer))) {
-      throw new Error("non-positive or non-finite amount");
+    // u64 is the Move integer ceiling — out-of-range atomics are a client error (400), not a downstream 503.
+    const U64_MAX = 18446744073709551615n; // 2^64 - 1
+    if (
+      debt <= 0n || collateral <= 0n ||
+      debt > U64_MAX || collateral > U64_MAX ||
+      (buffer != null && !Number.isFinite(buffer))
+    ) {
+      throw new Error("amount out of u64 range");
     }
   } catch {
     return NextResponse.json({ ok: false, abortReason: "invalid amount" }, { status: 400 });

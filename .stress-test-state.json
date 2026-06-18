@@ -1,0 +1,61 @@
+{
+  "status": "complete",
+  "working_dir": "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail",
+  "autonomous_mode": false,
+  "pipeline_run": false,
+  "context_percentage": 62,
+  "timestamp": "2026-06-18T17:30:00Z",
+  "confidenceScore": 93,
+  "test_summary": { "total_tests": 33, "passed": 32, "failed": 1, "fixed": 1, "skipped": 0, "unresolved": 0 },
+  "unresolved_bugs": [],
+  "fixes_applied": [
+    {
+      "id": "ST-F2-VAL-06",
+      "file": "app/api/preview/route.ts",
+      "description": "u64-overflow atomics rejected as clean 400 (was 503); extends DEV-019 client-vs-downstream validation contract. No UI behavior change.",
+      "verified": true
+    }
+  ],
+  "critique_checkpoint": {
+    "elevations_checked": 4,
+    "elevations_verified": 2,
+    "elevations_implemented": 0,
+    "gaps": [],
+    "note": "E-1 (fee-$0 row) + E-3 ($/yr savings) verified rendering; E-2/E-4 are README/sponsor-tracks copy (not UI)."
+  },
+  "dev_server": { "port": 3011, "started_at": "2026-06-18T17:10:00Z", "healthy": true, "killed": true },
+  "screenshot_paths": [
+    "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/stress/stress-320.png",
+    "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/stress/stress-768.png",
+    "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/stress/stress-1024.png",
+    "/Users/MAC/hackathon-toolkit/active/sui-overflow-2026/refirail/screenshots/stress/stress-1920.png"
+  ],
+  "plan_path": "STRESS-TEST-PLAN.md",
+  "report_path": "STRESS-TEST-REPORT.md",
+  "phase": {
+    "setup": "complete",
+    "plan": "complete",
+    "frontend_journey": "complete",
+    "end_to_end_flows": "complete",
+    "frontend_visual": "complete",
+    "backend_api": "complete",
+    "contract": "skipped",
+    "state_data": "complete",
+    "network_timing": "complete",
+    "recovery": "complete",
+    "fix_round": "complete"
+  },
+  "async_flow_results": [
+    {
+      "flow_name": "A1 Refinance preview",
+      "triggered_at": "2026-06-18T17:20:00Z",
+      "completed_at": "2026-06-18T17:20:13Z",
+      "wall_clock_seconds": 13,
+      "expected_seconds": 15,
+      "events_received": { "ok_true": 1, "txB64": 1, "balanceChanges": 1 },
+      "events_missing": [],
+      "final_state_verified": true,
+      "result": "PASS"
+    }
+  ]
+}
