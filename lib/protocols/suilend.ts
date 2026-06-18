@@ -58,3 +58,45 @@ export async function appendSuilendDepositBorrow(
 
   return { borrowedCoin, cap };
 }
+
+// DEV-019: UNWIND an existing Suilend obligation — repay USDC debt then withdraw SUI collateral.
+// Used to recover funds the refinance moved into Suilend when there is no longer a need to keep
+// the position open (e.g. re-seeding the Navi demo position). Composes into ONE PTB:
+//   1. refreshAll (Pyth update + refresh BOTH reserves so withdraw revalues against fresh prices)
+//   2. repay the debt with a caller-provided USDC coin (protocol clears up to outstanding, refunds excess)
+//   3. withdraw `withdrawCtokenAtomic`? — NO: Suilend `withdraw` takes the cToken-denominated value.
+//      We pass the underlying-equivalent value the caller computed; addRefreshCalls=false because
+//      step 1 already refreshed in this same PTB.
+// Returns the withdrawn SUI coin handle (caller transfers it + the cap back to sender).
+export async function appendSuilendRepayWithdraw(
+  client: SuilendClient,
+  tx: Transaction,
+  args: {
+    obligationId: string;
+    cap: string;            // ObligationOwnerCap object id (owned by sender)
+    usdcCoin: TransactionResult; // coin to repay with (the protocol caps at outstanding debt)
+    collateralType: string; // COINS.SUI
+    debtType: string;       // COINS.USDC
+    withdrawCtokenAtomic: bigint; // cToken amount to withdraw (NOT underlying — Suilend withdraw takes cTokens)
+  },
+): Promise<{ withdrawnCoin: TransactionResult }> {
+  // 1. Pyth update + refresh BOTH reserves (same transient-retry rationale as deposit/borrow path).
+  await withRetry(() =>
+    client.refreshAll(tx, undefined, [args.collateralType, args.debtType]),
+  );
+
+  // 2. repay USDC debt (sync; returns the leftover coin which we ignore — caller sweeps wallet dust).
+  client.repay(args.obligationId, args.debtType, args.usdcCoin, tx);
+
+  // 3. withdraw SUI collateral cTokens. addRefreshCalls=false — refreshAll above already refreshed.
+  const withdrawnCoin = (await client.withdraw(
+    args.cap,
+    args.obligationId,
+    args.collateralType,
+    args.withdrawCtokenAtomic.toString(),
+    tx,
+    false,
+  )) as unknown as TransactionResult;
+
+  return { withdrawnCoin };
+}

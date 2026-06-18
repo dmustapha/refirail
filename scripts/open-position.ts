@@ -12,6 +12,7 @@ import { depositCoinPTB, borrowCoinPTB, getLendingPositions } from "@naviprotoco
 import { makeSuiClient, makeDemoKeypair } from "../lib/clients";
 import { NAVI, COINS } from "../lib/config";
 import { suiAtomic, usdcAtomic } from "../lib/amounts";
+import { appendNaviOracleRefresh } from "../lib/protocols/navi";
 
 const COLLATERAL_SUI = 1.0; // ~1.0 SUI collateral (keeps gas + refinance headroom from ~1.94 total)
 const BORROW_USDC = 0.3; // native USDC (assetId 10), matches the Task 1.3-proven amount
@@ -39,6 +40,10 @@ function hasUsdcBorrow(positions: Awaited<ReturnType<typeof getLendingPositions>
 async function buildOpenTx(sender: string): Promise<Transaction> {
   const tx = new Transaction();
   tx.setSender(sender);
+  // DEV-019: prepend Navi's SUI+USDC oracle refresh before the borrow. Without it the borrow's
+  // `calculator::calculate_value` revalues against a stale oracle and aborts 1502 intermittently
+  // (same oracle-staleness race fixed for the refinance withdraw in lib/protocols/navi.ts).
+  await appendNaviOracleRefresh(tx, sender);
   // Split collateral from the gas coin (Navi deposit's standard SUI path).
   const [collateral] = tx.splitCoins(tx.gas, [Number(suiAtomic(COLLATERAL_SUI))]);
   // Deposit SUI as Navi collateral (assetId 0). `tx as never`: Navi bundles its own nested
