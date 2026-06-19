@@ -27,6 +27,7 @@
   --status-danger: #f87171;
   --status-warn:   #fbbf24;
   --ok-faint:      rgba(74, 222, 128, 0.12);
+  --danger-faint:  rgba(248, 113, 113, 0.14);
 
   /* ── Focal glows (pure-glow doctrine — reserved for ≤2 elements/viewport) ── */
   --glow-cta: 0 0 0 1px var(--brand-glow), 0 10px 32px rgba(77, 162, 255, 0.20);
@@ -347,4 +348,71 @@ body::before {
   }
   .hero-rail { transform: scaleX(1); opacity: 1; }
   .rail-dot { left: 100%; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* DeepBook-core widening: shell layout · mode toggle · DeepBook panel        */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell: main column + DeepBook side panel (fills the desktop void) ── */
+.shell {
+  position: relative; z-index: 1;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: clamp(40px, 9vh, 88px) var(--sp-4) 64px;
+  display: grid;
+  grid-template-columns: minmax(0, var(--maxw)) minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+}
+.col  { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.side { position: sticky; top: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+@media (max-width: 920px) {
+  .shell { grid-template-columns: 1fr; max-width: var(--maxw); }
+  .side  { position: static; }
+}
+
+/* ── Segmented control (mode toggle + % presets) ── */
+.seg { display: flex; gap: var(--sp-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; }
+.seg.modes { width: 100%; }
+.seg-btn {
+  flex: 1; font-family: var(--font-mono); font-weight: 600; font-size: var(--text-sm);
+  color: var(--muted); background: transparent; border: 0; border-radius: 6px;
+  padding: 9px 12px; cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+.seg-btn.on { color: var(--fg); background: var(--brand-faint); box-shadow: var(--inset-top); }
+.seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (hover: hover) { .seg-btn:hover:not(:disabled):not(.on) { color: var(--fg); } }
+
+/* ── DeepBook panel: route comparison + depth ladder ── */
+.dbk .routes { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0; }
+.route {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-3); align-items: baseline;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  transition: border-color 220ms ease, background-color 220ms ease;
+}
+.route.win { border-color: var(--border-hot); background: var(--brand-dim); box-shadow: var(--inset-top); }
+.route > span { color: var(--fg); font-size: var(--text-sm); }
+.route > b { font-size: var(--text-xs); }
+.route > em { grid-column: 1 / -1; font-style: normal; color: var(--muted); font-size: var(--text-xs); }
+
+.depth { display: flex; flex-direction: column; gap: 2px; margin-top: var(--sp-3); }
+.dlvl { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 18px; }
+.dlvl > code { position: relative; z-index: 1; font-size: var(--text-xs); color: var(--muted); background: transparent; padding: 0 4px; }
+.bar { position: absolute; left: 0; top: 2px; bottom: 2px; width: var(--w, 0); border-radius: 3px; }
+.bar.ask { background: var(--danger-faint); }
+.bar.bid { background: var(--ok-faint); }
+.dmid { font-size: var(--text-xs); color: var(--brand-soft); text-align: center; padding: 5px 0; letter-spacing: 0.04em; }
+
+/* ── Progress (3-protocol simulation narration) ── */
+.progress { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) 0; color: var(--muted); font-size: var(--text-sm); }
+.p-node { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-glow); animation: p-pulse 1.2s ease-in-out infinite; }
+.p-node.n2 { animation-delay: 0.2s; }
+.p-node.n3 { animation-delay: 0.4s; }
+.p-label { margin-left: var(--sp-2); }
+@keyframes p-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.3); box-shadow: 0 0 8px var(--brand-glow); }
 }
