@@ -33,3 +33,36 @@ export interface PreviewResult {
   suilendAprPct?: number;
   txB64?: string; // serialized PTB for the client to sign (present only when ok)
 }
+
+// Deleverage preview — all numbers from live reads + the dryRun (no fabrication).
+export interface DeleverageResult {
+  ok: boolean;
+  abortReason?: string;
+  txB64?: string;
+  healthBefore?: number;
+  healthAfter?: number;
+  debtBeforeUsd?: number;
+  debtAfterUsd?: number;
+  collatBeforeUsd?: number;
+  collatAfterUsd?: number;
+  suiSold?: number;
+  usdcRepaid?: number;
+  surplusUsdc?: number;
+  route?: string; // e.g. "SUI → DEEP → USDC"
+  feeUsd?: number; // 0 on the whitelisted two-hop
+}
+
+// Live DeepBook panel data (best-execution route comparison + depth).
+export interface DeepBookRouteQuote {
+  usdcOut: number;
+  deepFee: number;
+  available: boolean;
+}
+export interface DeepBookView {
+  midSuiUsdc: number;
+  refSui: number; // reference size quoted (e.g. 1 SUI)
+  twoHop: DeepBookRouteQuote;
+  direct: DeepBookRouteQuote;
+  best: "twoHop" | "direct";
+  depth: { bids: { price: number; qty: number }[]; asks: { price: number; qty: number }[] };
+}

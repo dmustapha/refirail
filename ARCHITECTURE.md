@@ -1682,3 +1682,20 @@ Wire protocol: verify each CRITICAL edge appears in code → run `npm run dryrun
 | refinance tx | confirm to digest | < 15s | wall-clock during demo |
 
 *(Gas: a ~10-command refinance ≈ 0.01–0.03 SUI ≈ $0.01–$0.02. No contract gas snapshot — zero net-new Move.)*
+
+---
+
+## Addendum — 2026-06-19: deleverage engine + DeepBook routing
+**New op (lib/deleverage.ts), one atomic PTB:** DeepBook flash-borrow USDC (fee-free, SUI_USDC pool)
+→ Navi oracle refresh (DEV-016, same stale-price guard as refinance) → repay Navi debt slice →
+withdraw SUI slice → **DeepBook two-hop swap SUI→DEEP→USDC** → return flash EXACTLY → sweep surplus.
+- **Two-hop route (lib/protocols/deepbook.ts `appendSwapSuiToUsdcTwoHop`):** hop1 DEEP_SUI
+  `swap_exact_quote_for_base` (SUI→DEEP), hop2 DEEP_USDC `swap_exact_base_for_quote` (DEEP→USDC).
+  Both pools WHITELISTED → `deepRequired == 0` (no DEEP held). `minOut` enforced on hop2 = the repay
+  amount, so the whole tx reverts atomically if the route can't return the flash (the safety guarantee).
+- **Correction:** SUI_USDC is **NOT** whitelisted (spike `whitelisted()==false`); a direct SUI→USDC swap
+  needs a DEEP taker fee → kept only as `appendSwapSuiToUsdcDirect` for the best-execution route comparison.
+- **Sizing (lib/deleverageQuote.ts):** collateral-to-sell derived from a LIVE DeepBook quote
+  (target = repay × 1.05, ×1.02 slippage pad, clamped to ≥0.35 SUI floor). Real data, no fabrication.
+- **Proven:** dryRun GREEN on mainnet (scripts/deleverage-dryrun.ts); real USDC→SUI two-hop executed
+  (digest HobEcVCGVLSis7bHaW7UMqS5fL4btkUXzCt1EmiFYCte). FROZEN: lib/refinance.ts core unchanged.

@@ -1,7 +1,7 @@
 # RefiRail — Product Requirements Document
 
 **Hackathon:** Sui Overflow 2026
-**Track:** Special–DeepBook ($70k, flash-loan leg) + DeFi & Payments ($62.5k core) — multi-track single submission
+**Track:** Special–DeepBook ($70k) — ONE primary track (one-track rule confirmed). See Change Record (2026-06-19).
 **Deadline:** 2026-06-20 16:00 UTC (3 days remaining; ~2.5 build days, Day 3 reserved for demo video + submission)
 **Version:** V1
 **Scope mode:** rush (MVP = L1 headline refinance + guaranteed floor; L2 stretch cut)
@@ -462,3 +462,17 @@ The riskiest unknown (Suilend Pyth refresh) is front-loaded to Day 1 morning wit
 | 12 | A | Reframing on the table | Framing frozen pre-research (FRAMING-LOCK) — intentionally not reframing. |
 
 All [C] critical concerns are addressed. No critical concern is left unaddressed → PRD is complete.
+
+---
+
+## Change Record — 2026-06-19: DeepBook track + deleverage (post-stress widening)
+Submission track decided = **DeepBook (specialized)** after an on-chain spike proved a fee-free
+SUI→DEEP→USDC two-hop composes atomically. The product widens minimally from "refinance" to
+**"manage your loan in one click — move it or de-risk it"** with TWO operations on ONE engine:
+- **Refinance** (the proven, frozen core) — DeepBook flash loan.
+- **Deleverage** (new sibling) — pay down a chosen % of debt by selling a slice of collateral through
+  DeepBook's order book, atomically, reverts if the route underdelivers. This is where the order book
+  does real work, so it leads the DeepBook-track pitch (refinance is the trust-builder).
+DeepBook centrality = a best-execution router across DeepBook pools (fee-free two-hop vs DEEP-charging
+direct). Single lender pair + asset pair otherwise ("first rail"). Full detail: `IMPLEMENTATION-PLAN.md`
++ `DELEVERAGE-SCOPE.md`. Correction: the old "SUI_USDC is whitelisted" assumption was FALSE (spike-disproven).

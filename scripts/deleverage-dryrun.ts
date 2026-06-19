@@ -7,14 +7,14 @@ require("dotenv").config({ path: ".env.local" });
 
 import { getLendingPositions } from "@naviprotocol/lending";
 import { makeSuiClient, makeDemoKeypair } from "../lib/clients";
+import { makeDeepBook } from "../lib/protocols/deepbook";
 import { buildDeleveragePTB } from "../lib/deleverage";
+import { sizeDeleverage } from "../lib/deleverageQuote";
 import { simulateRefinance } from "../lib/simulate";
 
-// Demo position is tiny (~0.30 USDC debt), so the strictly-needed SUI is below the two-hop's ~0.3 SUI
-// floor. For the mechanism proof we over-withdraw a safe 0.5 SUI slice (above the floor); the surplus
-// USDC is swept back. Real sizing (quote-based, min-floor clamped) lands in the API layer next.
+// Real quote-based sizing (lib/deleverageQuote): the SUI slice is derived from a live DeepBook quote
+// and clamped to the two-hop floor. On a tiny demo debt this clamps to MIN_SUI_SELL (surplus swept back).
 const REPAY_FRACTION = 0.5; // pay down 50% of the USDC debt
-const TEST_COLLATERAL_SUI = 0.5; // withdraw + sell this much SUI (above the two-hop floor)
 
 async function retry<T>(fn: () => Promise<T>, n = 4): Promise<T> {
   let last: unknown;
@@ -32,17 +32,22 @@ async function retry<T>(fn: () => Promise<T>, n = 4): Promise<T> {
 async function main() {
   const suiClient = makeSuiClient();
   const sender = makeDemoKeypair().getPublicKey().toSuiAddress();
+  const db = makeDeepBook(suiClient, sender);
   console.log(`\nRefiRail · deleverage dry-run\nsender ${sender}\n`);
 
-  // Read the live Navi USDC debt just-in-time (never fabricate amounts).
+  // Read the live Navi USDC debt + SUI collateral just-in-time (never fabricate amounts).
   const positions = await retry(() => getLendingPositions(sender));
-  let debtHuman = 0;
+  let debtHuman = 0, collatSui = 0;
   for (const p of positions as any[]) {
     const b = p?.["navi-lending-borrow"];
+    const s = p?.["navi-lending-supply"];
     if (b && String(b?.token?.coinType ?? "").toLowerCase().includes("usdc") && Number(b.amount) > 0) {
-      const dec = Number(b?.token?.decimals ?? 6);
-      const a = Number(b.amount);
+      const dec = Number(b?.token?.decimals ?? 6); const a = Number(b.amount);
       debtHuman = a > 1e6 && dec >= 6 ? a / 10 ** dec : a;
+    }
+    if (s && String(s?.token?.coinType ?? "").includes("sui::SUI") && Number(s.amount) > 0) {
+      const dec = Number(s?.token?.decimals ?? 9); const a = Number(s.amount);
+      collatSui = a > 1e6 && dec >= 6 ? a / 10 ** dec : a;
     }
   }
   if (debtHuman <= 0) {
@@ -50,16 +55,17 @@ async function main() {
     process.exit(1);
   }
 
-  const repayAtomic = BigInt(Math.floor(debtHuman * REPAY_FRACTION * 1e6));
-  const collateralAtomic = BigInt(Math.floor(TEST_COLLATERAL_SUI * 1e9));
+  const debtAtomic = BigInt(Math.round(debtHuman * 1e6));
+  const size = await retry(() => sizeDeleverage(db, debtAtomic, REPAY_FRACTION, collatSui));
+  if (!size.ok) { console.log(`sizing failed: ${size.reason}`); process.exit(1); }
   console.log(
-    `live debt ≈ ${debtHuman.toFixed(6)} USDC → repay ${(debtHuman * REPAY_FRACTION).toFixed(
-      6,
-    )} (${REPAY_FRACTION * 100}%) by selling ${TEST_COLLATERAL_SUI} SUI\n`,
+    `live debt ≈ ${debtHuman.toFixed(6)} USDC · collat ${collatSui.toFixed(4)} SUI\n` +
+    `sized: repay ${size.repayHuman.toFixed(6)} USDC (${REPAY_FRACTION * 100}%) by selling ${size.suiToSell} SUI ` +
+    `(@ $${size.effPricePerSui.toFixed(4)}/SUI → ~${size.quotedUsdcOut.toFixed(4)} USDC out)\n`,
   );
 
   const tx = await retry(() =>
-    buildDeleveragePTB({ sender, suiClient, repayAtomic, collateralAtomic }),
+    buildDeleveragePTB({ sender, suiClient, repayAtomic: size.repayAtomic, collateralAtomic: size.collateralAtomic }),
   );
   const sim = await simulateRefinance(suiClient, tx, sender);
 
