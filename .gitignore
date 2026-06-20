@@ -33,3 +33,36 @@ yarn-error.log*
 # Playwright
 test-results/
 playwright-report/
+
+# Local build/working notes (not part of the public project)
+*-state.json
+.*-state.json
+*-REPORT.md
+PLAN.md
+IMPLEMENTATION-PLAN.md
+PRD.md
+ARCHITECTURE.md
+DESIGN_SYSTEM.md
+DESIGN_BRIEF.md
+DOMAIN-GUIDE.md
+DELEVERAGE-SCOPE.md
+DEEPBOOK-DELIBERATION-BRIEF.md
+TECHNICAL-SPIKE.md
+FEATURE-OBSERVABLES.md
+STRESS-TEST-PLAN.md
+brand.json
+concerns.md
+pipeline-log.md
+docs/context/
+warroom/
+scripts/vercel-safe.sh
+TESTING-PLAN.md
+
+# Internal working dirs + logs (local only)
+ai/
+design/
+research/
+tasks/
+screenshots/
+dev.log
+scripts/check-deadline.mjs

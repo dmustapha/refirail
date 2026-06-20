@@ -16,6 +16,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@alphafi/alphalend-sdk": "^3.0.1",
     "@mysten/dapp-kit": "^1.1.1",
     "@mysten/deepbook-v3": "latest",
     "@mysten/sui": "^2.18.0",
@@ -35,5 +36,10 @@
     "@types/react": "^19",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "overrides": {
+    "@alphafi/alphalend-sdk": {
+      "@mysten/sui": "2.18.0"
+    }
   }
 }

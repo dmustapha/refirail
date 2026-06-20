@@ -1,6 +1,6 @@
 // File: app/components/DeepBookPanel.tsx
-// Live DeepBook order-book panel (S1 best-execution proof + desktop-void filler). Polls /api/deepbook.
-// Shows mid, the route comparison (fee-free two-hop vs DEEP-charging direct), and real depth bars.
+// Live DeepBook best-execution panel. Polls /api/deepbook. Fee-free two-hop winner vs DEEP-charging
+// direct route, plus a real SUI/USDC order-book depth ladder.
 "use client";
 import { useEffect, useState } from "react";
 import type { DeepBookView } from "@/lib/types";
@@ -22,57 +22,64 @@ export function DeepBookPanel() {
 
   if (!v) {
     return (
-      <div className="card dbk">
-        <span className="tag">DeepBook · live order book</span>
-        <p className="tag note">Connecting to the order book…</p>
+      <div className="db-grid">
+        <div className="card"><p className="card-label">Route comparison</p><p className="muted-note">Reading the order book.</p></div>
+        <div className="card"><p className="card-label">SUI / USDC order book</p><p className="muted-note">Reading the order book.</p></div>
       </div>
     );
   }
 
+  const twoHopWins = v.best === "twoHop";
   const maxQty = Math.max(1, ...v.depth.asks.map((a) => a.qty), ...v.depth.bids.map((b) => b.qty));
-  const bar = (pct: number) => ({ ["--w" as any]: `${Math.max(2, Math.min(100, pct))}%` });
+  const width = (qty: number) => `${Math.max(8, Math.min(100, (qty / maxQty) * 100))}%`;
 
   return (
-    <div className="card dbk">
-      <span className="tag">DeepBook · live order book</span>
-      <div className="row">
-        <span>SUI / USDC mid</span>
-        <b className="flash">${v.midSuiUsdc.toFixed(4)}</b>
+    <div className="db-grid">
+      <div className="card">
+        <p className="card-label">Route comparison</p>
+        <div className={`route${twoHopWins ? " winner" : ""}`} style={{ marginBottom: 16 }}>
+          {twoHopWins && <span className="r-badge">Winner</span>}
+          <div className="r-top"><span className="r-tag">Route A · two-hop</span></div>
+          <p className="r-path">SUI &#8594; DEEP &#8594; USDC</p>
+          <div className="r-fee"><span className="amt">$0</span><span className="lab">fee</span></div>
+        </div>
+        <div className={`route${!twoHopWins ? " winner" : ""}`}>
+          {!twoHopWins && <span className="r-badge">Winner</span>}
+          <div className="r-top"><span className="r-tag">Route B · direct</span></div>
+          <p className="r-path">SUI &#8594; USDC</p>
+          <div className="r-fee"><span className="amt">needs DEEP</span><span className="lab">DEEP fee</span></div>
+          <p className="r-status">Charges a DEEP fee the wallet does not hold.</p>
+        </div>
+        <p className="db-note">
+          Best execution routes through the whitelisted DEEP pairs. Zero fee, no DEEP held. The
+          two-hop wins outright.
+        </p>
       </div>
 
-      <div className="routes">
-        <div className={`route${v.best === "twoHop" ? " win" : ""}`}>
-          <span>SUI → DEEP → USDC</span>
-          <b className="good">fee $0</b>
-          <em>{v.twoHop.usdcOut.toFixed(4)} / SUI</em>
-        </div>
-        <div className={`route${v.best === "direct" ? " win" : ""}`}>
-          <span>SUI → USDC · direct</span>
-          <b className="bad">needs DEEP</b>
-          <em>{v.direct.available ? v.direct.usdcOut.toFixed(4) + " / SUI" : "—"}</em>
-        </div>
-      </div>
-      <p className="tag note">
-        Best execution: routed through the whitelisted DEEP pairs — zero fee, no DEEP held.
-      </p>
-
-      {v.depth.asks.length > 0 && (
-        <div className="depth" aria-hidden="true">
+      <div className="card">
+        <p className="card-label">SUI / USDC order book</p>
+        <div className="ladder">
+          <div className="ladder-head">
+            <span className="lh-mid">mid <b>${v.midSuiUsdc.toFixed(4)}</b></span>
+            <span className="lh-mid" style={{ color: "var(--ivory-faint)" }}>depth</span>
+          </div>
           {v.depth.asks.slice().reverse().map((a, i) => (
-            <div key={"a" + i} className="dlvl">
-              <i className="bar ask" style={bar((a.qty / maxQty) * 100)} />
-              <code>{a.price.toFixed(4)}</code>
+            <div key={"a" + i} className="lad-row ask">
+              <span className="lp">{a.price.toFixed(4)}</span>
+              <span className="lq">{a.qty.toLocaleString()}</span>
+              <span className="bar" style={{ width: width(a.qty) }} />
             </div>
           ))}
-          <div className="dmid">mid ${v.midSuiUsdc.toFixed(4)}</div>
+          <div className="lad-mid">mid ${v.midSuiUsdc.toFixed(4)}</div>
           {v.depth.bids.map((b, i) => (
-            <div key={"b" + i} className="dlvl">
-              <i className="bar bid" style={bar((b.qty / maxQty) * 100)} />
-              <code>{b.price.toFixed(4)}</code>
+            <div key={"b" + i} className="lad-row bid">
+              <span className="lp">{b.price.toFixed(4)}</span>
+              <span className="lq">{b.qty.toLocaleString()}</span>
+              <span className="bar" style={{ width: width(b.qty) }} />
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

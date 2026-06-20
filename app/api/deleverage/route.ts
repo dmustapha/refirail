@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     );
     const sim = await withRetry(() => simulateRefinance(suiClient, tx, address));
 
-    // Economics — all from real reads (no fabrication). healthAfter is Navi-side (this position).
+    // Economics, all from real reads (no fabrication). healthAfter is Navi-side (this position).
     const collatBeforeUsd = pos.collateral.usd ?? 0;
     const debtBeforeUsd = pos.debt.usd ?? 0;
     const healthBefore = pos.healthFactor;

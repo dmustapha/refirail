@@ -1,0 +1,6 @@
+<svg width="210" height="40" viewBox="0 0 210 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <line x1="9" y1="20" x2="41" y2="20" stroke="#4DA2FF" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="9" cy="20" r="4" fill="#060A12" stroke="#4DA2FF" stroke-width="2.4"/>
+  <circle cx="41" cy="20" r="4.6" fill="#46E5B5"/>
+  <text x="58" y="28" font-family="Instrument Serif, Georgia, serif" font-size="27" fill="#EAF2FF">RefiRail</text>
+</svg>

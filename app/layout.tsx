@@ -1,33 +1,42 @@
 // File: app/layout.tsx
 import type { Metadata } from "next";
-import { DM_Serif_Display, IBM_Plex_Mono } from "next/font/google";
+import { Instrument_Serif, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-// Financial / settlement domain pairing (design-taste ronin §9):
-// DM Serif Display = institutional gravitas (wordmark/headings),
-// IBM Plex Mono = forensic on-chain ledger voice (body + every numeric).
-const display = DM_Serif_Display({
+// "Editorial Settlement" type system:
+// Instrument Serif = display voice (wordmark, headlines, the big health figure).
+// Hanken Grotesk   = body + UI.
+// Spline Sans Mono = on-chain artifacts only (hashes, addresses, prices, signed deltas).
+const serif = Instrument_Serif({
   weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
-  variable: "--font-display",
+  variable: "--font-serif",
   display: "swap",
 });
-const mono = IBM_Plex_Mono({
+const sans = Hanken_Grotesk({
   weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+const mono = Spline_Sans_Mono({
+  weight: ["400", "500"],
   subsets: ["latin"],
   variable: "--font-mono",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "RefiRail — one-click atomic refinance on Sui",
-  description: "Move your loan to a cheaper rate in one atomic transaction.",
+  title: "RefiRail · atomic refinance and deleverage on Sui",
+  description:
+    "Move your Sui lending position to a cheaper rate, or pay down debt to lift your health factor. One atomic transaction, zero upfront capital, reverts if it would leave you worse off.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${mono.variable}`}>
+    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

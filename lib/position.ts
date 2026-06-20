@@ -1,8 +1,22 @@
 // File: lib/position.ts
 import { getLendingPositions, getHealthFactor } from "@naviprotocol/lending";
 import { initSuilend } from "./protocols/suilend";
+import { alphalendUsdcBorrowApr } from "./protocols/alphalend";
 import { NAVI, COINS } from "./config";
 import type { PositionView } from "./types";
+
+// Pick the cheapest refinance destination by borrow APR (Suilend vs AlphaLend).
+function pickDest(suilendApr?: number, alphalendApr?: number): {
+  recommendedDest?: "suilend" | "alphalend";
+  bestApr?: number;
+} {
+  const opts: { id: "suilend" | "alphalend"; apr: number }[] = [];
+  if (suilendApr != null) opts.push({ id: "suilend", apr: suilendApr });
+  if (alphalendApr != null) opts.push({ id: "alphalend", apr: alphalendApr });
+  if (!opts.length) return {};
+  const best = opts.reduce((a, b) => (b.apr < a.apr ? b : a));
+  return { recommendedDest: best.id, bestApr: best.apr };
+}
 
 // DEV-010 (UNVERIFIED→VERIFIED Day-0): the documented NAVI.CONFIG_URL (/api/navi/config) returns
 // only protocol object-ids + oracle feeds — NO pools/APR. The live borrow APR lives at
@@ -75,9 +89,15 @@ function legAmount(leg: any): number {
 }
 
 export async function getPositionView(address: string): Promise<PositionView> {
-  const [naviApr, suiApr] = await Promise.all([naviUsdcBorrowApr(), suilendUsdcBorrowApr()]);
+  const [naviApr, suiApr, alphaApr] = await Promise.all([
+    naviUsdcBorrowApr(),
+    suilendUsdcBorrowApr(),
+    alphalendUsdcBorrowApr(),
+  ]);
+  // Route against the cheapest destination; the "you save" delta reflects that route.
+  const { recommendedDest, bestApr } = pickDest(suiApr, alphaApr);
   const aprDeltaPct =
-    naviApr != null && suiApr != null ? +(naviApr - suiApr).toFixed(2) : undefined;
+    naviApr != null && bestApr != null ? +(naviApr - bestApr).toFixed(2) : undefined;
 
   let positions: any[] = [];
   try {
@@ -97,7 +117,8 @@ export async function getPositionView(address: string): Promise<PositionView> {
 
   // The refinance acts on a USDC borrow against SUI collateral. No such position -> honest empty state.
   if (!borrow || !supply) {
-    return { hasPosition: false, address, naviAprPct: naviApr, suilendAprPct: suiApr, aprDeltaPct,
+    return { hasPosition: false, address, naviAprPct: naviApr, suilendAprPct: suiApr,
+      alphalendAprPct: alphaApr, recommendedDest, aprDeltaPct,
       note: "No Navi SUI/USDC borrow position found. Run scripts/seed-demo.ts to open the demo position." };
   }
 
@@ -114,6 +135,8 @@ export async function getPositionView(address: string): Promise<PositionView> {
     debt: { type: COINS.USDC, amountHuman: legAmount(borrow), usd: +Number(borrow.valueUSD ?? 0).toFixed(2) },
     naviAprPct: naviApr,
     suilendAprPct: suiApr,
+    alphalendAprPct: alphaApr,
+    recommendedDest,
     aprDeltaPct,
     healthFactor,
   };

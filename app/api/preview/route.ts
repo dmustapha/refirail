@@ -14,7 +14,8 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, abortReason: "invalid json" }, { status: 400 });
   }
-  const { address, debtAtomic, collateralAtomic, bufferBps } = body ?? {};
+  const { address, debtAtomic, collateralAtomic, bufferBps, destId } = body ?? {};
+  const dest: "suilend" | "alphalend" = destId === "alphalend" ? "alphalend" : "suilend";
   if (!address || !debtAtomic || !collateralAtomic) {
     return NextResponse.json({ ok: false, abortReason: "missing params" }, { status: 400 });
   }
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     debt = BigInt(debtAtomic);
     collateral = BigInt(collateralAtomic);
     buffer = bufferBps != null ? Number(bufferBps) : undefined;
-    // u64 is the Move integer ceiling — out-of-range atomics are a client error (400), not a downstream 503.
+    // u64 is the Move integer ceiling. Out-of-range atomics are a client error (400), not a downstream 503.
     const U64_MAX = 18446744073709551615n; // 2^64 - 1
     if (
       debt <= 0n || collateral <= 0n ||
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
       debtAtomic: debt,
       collateralAtomic: collateral,
       bufferBps: buffer,
+      destId: dest,
     });
     const sim = await simulateRefinance(suiClient, tx, address);
     let txB64: string | undefined;
@@ -55,7 +57,7 @@ export async function POST(req: Request) {
       const bytes = await tx.build({ client: suiClient });
       txB64 = toBase64(bytes);
     }
-    return NextResponse.json({ ...sim, txB64 });
+    return NextResponse.json({ ...sim, destId: dest, txB64 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, abortReason: e?.message ?? "build error" }, { status: 503 });
   }

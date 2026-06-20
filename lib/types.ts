@@ -14,7 +14,9 @@ export interface PositionView {
   debt?: CoinAmount;
   naviAprPct?: number;
   suilendAprPct?: number;
-  aprDeltaPct?: number;
+  alphalendAprPct?: number;
+  aprDeltaPct?: number;            // navi - cheapest destination APR (the "you save" against the routed dest)
+  recommendedDest?: "suilend" | "alphalend"; // cheapest destination by borrow APR
   healthFactor?: number;
   note?: string; // e.g. guidance when no position exists
 }
@@ -31,6 +33,7 @@ export interface PreviewResult {
   healthAfter?: number;
   naviAprPct?: number;
   suilendAprPct?: number;
+  destId?: "suilend" | "alphalend"; // venue the engine routed to (echoed by /api/preview)
   txB64?: string; // serialized PTB for the client to sign (present only when ok)
 }
 

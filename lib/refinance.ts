@@ -4,8 +4,16 @@ import type { SuiClient } from "./clients";
 import { makeDeepBook, appendFlashBorrowUSDC, appendFlashRepayUSDC } from "./protocols/deepbook";
 import { appendNaviRepayUSDC, appendNaviWithdrawSUI, appendNaviOracleRefresh } from "./protocols/navi";
 import { initSuilend, appendSuilendDepositBorrow } from "./protocols/suilend";
+import { initAlphalend, appendAlphalendDepositBorrow } from "./protocols/alphalend";
 import { computeFlashAmounts } from "./amounts";
 import { COINS } from "./config";
+
+// Refinance destinations (the money market we move the debt INTO). Source stays Navi.
+export type DestId = "suilend" | "alphalend";
+export const DESTINATIONS: { id: DestId; name: string }[] = [
+  { id: "suilend", name: "Suilend" },
+  { id: "alphalend", name: "AlphaLend" },
+];
 
 export interface RefinanceParams {
   sender: string;
@@ -13,6 +21,7 @@ export interface RefinanceParams {
   debtAtomic: bigint;        // current Navi USDC debt (atomic), read just before build
   collateralAtomic: bigint;  // SUI collateral to move (atomic)
   bufferBps?: number;        // flash over-borrow buffer; default 30 bps
+  destId?: DestId;           // destination money market; default "suilend"
 }
 
 // Returns the composed, sender-set PTB. Caller dry-runs it (simulate) before signing.
@@ -22,8 +31,8 @@ export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction
   const tx = new Transaction();
   tx.setSender(p.sender);
 
+  const destId: DestId = p.destId ?? "suilend";
   const db = makeDeepBook(p.suiClient, p.sender);
-  const suilend = await initSuilend();
 
   // 1. flash-borrow USDC (fee-free) from DeepBook SUI_USDC (USDC = quote)
   const [flashUsdc, flashLoan] = appendFlashBorrowUSDC(db, tx, flashHuman);
@@ -39,14 +48,19 @@ export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction
   // 3. withdraw the freed SUI collateral from Navi
   const suiCoin = await appendNaviWithdrawSUI(tx, p.collateralAtomic);
 
-  // 4-7. Suilend: createObligation -> deposit SUI -> refreshAll -> borrow USDC (== flash amount)
-  const { borrowedCoin, cap } = await appendSuilendDepositBorrow(suilend, tx, {
+  // 4-7. DESTINATION half (dispatch by id): create position -> deposit SUI -> oracle refresh
+  //      -> borrow USDC (== flash amount). Both adapters return { borrowedCoin, cap }.
+  const depositArgs = {
     suiCoin,
     collateralType: COINS.SUI,
     debtType: COINS.USDC,
     borrowAtomic: flashAtomic,
     sender: p.sender,
-  });
+  };
+  const { borrowedCoin, cap } =
+    destId === "alphalend"
+      ? await appendAlphalendDepositBorrow(await initAlphalend(), tx, depositArgs)
+      : await appendSuilendDepositBorrow(await initSuilend(), tx, depositArgs);
 
   // 8. repay the flash loan EXACTLY; remainder coin (dust) returned for sweeping
   const remainder = appendFlashRepayUSDC(db, tx, flashHuman, borrowedCoin, flashLoan);
