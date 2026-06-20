@@ -1,91 +1,83 @@
 # RefiRail
 
-**$450M+ in lending TVL sits across Navi, Suilend, and Scallop — and there is zero tooling to move a position between them.** A borrower stuck at a higher rate on one protocol cannot simply slide their loan to a cheaper one. The unwind (repay debt → free collateral → re-deposit → re-borrow) requires capital you do not have while your collateral is still locked, and on an account-model chain it is several risky, separately-signed transactions where a failure midway can leave you under-collateralized.
+Manage a Sui lending position in one click — move it to a cheaper rate, or de-risk it — as a single atomic transaction with zero upfront capital. If any step would leave you worse off, the whole transaction reverts and your original position is untouched.
 
-RefiRail makes it **one click, one atomic transaction** — and it is only expressible this way *because* Sui is object-model with Programmable Transaction Blocks. The same flow is impossible to express as a single atomic transaction on account-model chains: you would need a custom flash-loan-aware smart contract to chain the legs, whereas on Sui the entire 6-protocol-call sequence composes at the transaction layer and reverts as a unit if it would ever leave you worse off.
+**Live:** https://refirail.vercel.app · **Network:** Sui mainnet · **Track:** DeepBook
 
-> **Live demo:** _(deploy in a later pipeline phase — URL placeholder)_
-
----
-
-## How It Works — the 6-leg atomic PTB
-
-RefiRail composes a single Programmable Transaction Block that the user signs once. Every leg is real mainnet protocol calls; if any leg fails (or the end-state would be unhealthy), the whole transaction reverts and the user's original position is untouched.
-
-1. **Flash-borrow USDC** from the DeepBook `SUI_USDC` pool — *fee-free* (DeepBook's flash-loan primitive charges no fee).
-2. **Repay the Navi USDC debt** in full with the flash proceeds (any excess refunds to the user).
-3. **Withdraw the freed SUI collateral** from Navi now that the debt is cleared.
-4. **Open a Suilend obligation, deposit the SUI**, refresh both reserve prices (Pyth), and **borrow USDC** equal to the flash amount.
-5. **Repay the DeepBook flash loan** exactly with the freshly-borrowed USDC.
-6. **Transfer the Suilend obligation cap + sweep any dust** back to the user.
-
-The user never needs upfront capital: the flash loan bridges the gap between "debt still owed on Navi" and "new debt available on Suilend." Preview (server-side `dryRun` against live mainnet) shows the exact balance changes and the projected health factor before any signature — $0 and no wallet prompt.
+![RefiRail](docs/images/landing.png)
 
 ---
 
-## Tech Stack
+## The problem
 
-- **Next.js 15** (App Router) — frontend + API route handlers (`/api/position`, `/api/preview`).
-- **@mysten/sui v2** — PTB construction, JSON-RPC client, `dryRunTransactionBlock` simulation.
-- **@mysten/dapp-kit** — wallet connect + sign-and-execute of the server-built bytes.
-- **@mysten/deepbook-v3** — fee-free flash loan + spot swap primitives.
-- **@suilend/sdk** — obligation creation, deposit, Pyth price refresh, borrow.
-- **@naviprotocol/lending** — repay + collateral withdraw.
-- **Pyth** — on-chain price refresh for both reserves inside the PTB.
+Hundreds of millions in lending TVL sit across Navi, Suilend, and Scallop, and there is no tooling to move a position between them. A borrower stuck at a higher rate cannot slide their loan to a cheaper protocol: the unwind (repay debt → free collateral → redeposit → reborrow) needs capital you do not have while your collateral is still locked, and it is several separately-signed transactions where a failure midway can leave you under-collateralized.
 
-The server builds and dry-runs the PTB, then returns signable bytes only when the simulation succeeds — the client never receives a transaction that would abort.
+The same is true for risk. When the market moves against you, paying down a slice of debt means selling collateral, repaying, and refreshing oracles — again, several fragile steps.
 
----
+RefiRail collapses both into one click, because Sui's object model and Programmable Transaction Blocks let the entire multi-protocol sequence compose at the transaction layer and settle atomically.
 
-## On-Chain Proof
+## Two operations, one engine
 
-RefiRail uses **two distinct DeepBook v3 primitives**, which is the core of its multi-track story:
+**Reduce my risk (the DeepBook operation).** Pay down a chosen slice of your USDC debt using your SUI collateral, routed through DeepBook. Pick 25%, 50%, or 75% and the preview shows your debt falling, collateral falling, and — the number that matters — your health factor *rising*, before you sign.
 
-1. **Fee-free flash loan (the hero).** Legs 1 + 5 borrow and return USDC from the DeepBook `SUI_USDC` pool. The net USDC balance change attributable to the borrow+return is **exactly zero** — DeepBook charges no fee on its flash primitive. This is what makes the whole refinance capital-free and is shown in the Preview panel as **"DeepBook flash loan — fee $0,"** captioned against the ~0.05–0.09% typical flash fees on other venues.
-2. **Spot swap `swapExactBaseForQuote` (the floor).** The deleverage path uses DeepBook's spot swap to convert collateral, exercising a second, independent DeepBook surface.
+**Move to a cheaper rate (the trust-builder).** Refinance a Navi USDC loan to Suilend's lower borrow rate in a single atomic transaction, without the capital to unwind it yourself.
 
-- DeepBook `SUI_USDC` pool: [`0xe05dafb5133bcffb8d59f4e12465dc0e9faeaa05e3e342a08fe135800e3e4407`](https://suiscan.xyz/mainnet/object/0xe05dafb5133bcffb8d59f4e12465dc0e9faeaa05e3e342a08fe135800e3e4407)
-- DeepBook package: [`0x0e735f8c93a95722efd73521aca7a7652c0bb71ed1daf41b26dfd7d1ff71f748`](https://suiscan.xyz/mainnet/object/0x0e735f8c93a95722efd73521aca7a7652c0bb71ed1daf41b26dfd7d1ff71f748)
+Both run server-side as a dry-run against live mainnet first, so the app only ever hands your wallet a transaction that has already been proven not to abort.
 
-**Refinance execution digest:** _(pending Phase 2 execution against the funded demo wallet)_
-**Open-position digest:** _(pending Phase 2 execution)_
+## How the deleverage works — one atomic PTB
 
-> The Preview pipeline (`POST /api/preview`) is already proven against live Sui mainnet: it composes the full 6-leg PTB and runs `dryRunTransactionBlock`, returning real on-chain balance deltas (or a precise abort reason) with no signature and no cost.
+1. **Flash-borrow USDC** from DeepBook (its flash primitive is fee-free).
+2. **Repay a slice of the Navi debt** with the borrowed USDC.
+3. **Withdraw the corresponding SUI collateral** from Navi (oracle refreshed in-PTB).
+4. **Swap SUI → USDC** through DeepBook's whitelisted `DEEP/SUI` + `DEEP/USDC` pairs — a fee-free two-hop, with an enforced minimum output so the transaction reverts if the route can't deliver.
+5. **Return the flash loan** exactly; sweep any surplus back to you.
 
----
+The whole thing is one signature. The swap is where DeepBook does the real work: routing through the whitelisted DEEP pairs costs **0 DEEP in fees**, versus a direct `SUI/USDC` swap that would charge a DEEP taker fee the wallet doesn't hold. The live order-book panel shows both routes side by side and highlights the fee-free winner.
 
-## Multi-Track Mapping
+## Proven on mainnet
 
-- **DeepBook track.** Two primitives, deeply integrated, not decorative: the fee-free flash loan is the load-bearing mechanism that makes capital-free refinance possible (legs 1 & 5), and `swapExactBaseForQuote` is exercised on the deleverage floor. The flash loan is the hero — without it, refinance requires upfront capital the borrower does not have.
-- **DeFi track.** RefiRail is pure DeFi infrastructure: it composes Navi (lending), Suilend (lending), DeepBook (liquidity), and Pyth (oracle) into a single atomic user action that does not exist anywhere on Sui today — cross-protocol loan portability.
+Every operation is real on Sui mainnet — no testnet, no mocks. The full ledger (33 signed operations plus atomic revert-proofs) lives in [`submission/proof.md`](submission/proof.md).
 
----
+- **Atomic deleverage** (DeepBook flash + fee-free two-hop), health 1.89 → 2.92: [`4S5bhsgZ…`](https://suiscan.xyz/mainnet/tx/4S5bhsgZhsrwjaavUNBAZKyDwWKxKfruUTUXD6jT3S8K)
+- **Atomic refinance** (Navi → Suilend, one PTB): [`BiMBPK7s…`](https://suiscan.xyz/mainnet/tx/BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK)
 
-## Live APR comparison (verified Day-0, mainnet)
+RefiRail deploys **zero net-new Move** — it composes Navi, Suilend, DeepBook, and Pyth entirely at the PTB layer.
 
-| Protocol | USDC borrow APR | Source |
-|---|---|---|
-| Navi | ~8.76% | `open-api.naviprotocol.io/api/navi/pools` (id 10, `borrowIncentiveApyInfo.vaultApr`) |
-| Suilend | ~6.52% | on-chain reserve interest-rate curve, interpolated at live utilization |
+## Tech stack
 
-Rates move with utilization; the Preview panel always shows the authoritative on-chain numbers at refinance time.
+- **Next.js 15** (App Router) — frontend + API route handlers (`/api/position`, `/api/preview`, `/api/deleverage`, `/api/deepbook`)
+- **@mysten/sui v2** — PTB construction, JSON-RPC client, `dryRunTransactionBlock`
+- **@mysten/dapp-kit** — wallet connect + client-side signing of server-built bytes
+- **@mysten/deepbook-v3** — fee-free flash loan, fee-free two-hop swap, live order-book reads
+- **@suilend/sdk** — obligation create / deposit / borrow
+- **@naviprotocol/lending** — repay / withdraw
+- **Pyth** — in-PTB oracle refresh
 
----
+## API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/position?address=` | Live Navi position + Navi/Suilend borrow APRs |
+| POST | `/api/preview` | Build + dry-run the refinance PTB; returns signable bytes |
+| POST | `/api/deleverage` | Size from a live DeepBook quote, build + dry-run; returns health-after + signable bytes |
+| GET | `/api/deepbook` | Live mid price, two-hop vs direct route comparison, order-book depth |
 
 ## Running locally
 
 ```bash
-npm install
-npm run dev   # http://localhost:3000
+npm install          # .npmrc sets legacy-peer-deps
+cp .env.example .env.local   # add an RPC URL + a demo wallet key for the scripts
+npm run dev          # http://localhost:3000
 ```
 
-The page renders the demo position on first paint via `NEXT_PUBLIC_DEMO_ADDRESS` even with no wallet connected. **Preview** works with no wallet (server-side simulation); only **Refinance** (sign + execute) is wallet-gated.
+The page renders the demo position on first paint via `NEXT_PUBLIC_DEMO_ADDRESS`, even with no wallet connected. Preview and deleverage previews work with no wallet (server-side simulation); only signing is wallet-gated.
 
 ```bash
-# Read a position
-curl "http://localhost:3000/api/position?address=$NEXT_PUBLIC_DEMO_ADDRESS"
-
-# Preview the refinance (server builds + dry-runs the PTB)
-curl -XPOST http://localhost:3000/api/preview -H 'content-type: application/json' \
-  -d "{\"address\":\"$NEXT_PUBLIC_DEMO_ADDRESS\",\"debtAtomic\":\"1000000\",\"collateralAtomic\":\"3000000000\"}"
+npm run test:unit    # sizing, health-after, route-selection math
+npm run test:api     # malformed-input matrix across all four endpoints (needs dev server)
+npm run test:e2e     # Playwright: flows, a11y, responsive, resilience
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
