@@ -20,7 +20,7 @@ import { appendNaviOracleRefresh } from "../lib/protocols/navi";
 // NB: deliberately NOT named DEMO_COLLATERAL_SUI/DEMO_DEBT_USDC — those record the *current* size.
 const TARGET_COLLATERAL_SUI = Number(process.env.DEMO_TARGET_COLLATERAL_SUI ?? 15);
 const TARGET_DEBT_USDC = Number(process.env.DEMO_TARGET_DEBT_USDC ?? 4.5);
-const RESERVE_SUI = 5; // never drop free SUI below this (gas headroom for the rest of the hackathon)
+const RESERVE_SUI = Number(process.env.DEMO_RESERVE_SUI ?? 5); // never drop free SUI below this (gas headroom)
 const EPS = 0.05; // don't bother with sub-0.05 top-ups (avoids dust legs)
 
 async function retry<T>(fn: () => Promise<T>, n = 3): Promise<T> {

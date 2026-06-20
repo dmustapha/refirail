@@ -20,7 +20,7 @@ RefiRail collapses both into one click, because Sui's object model and Programma
 
 **Reduce my risk (the DeepBook operation).** Pay down a chosen slice of your USDC debt using your SUI collateral, routed through DeepBook. Pick 25%, 50%, or 75% and the preview shows your debt falling, collateral falling, and — the number that matters — your health factor *rising*, before you sign.
 
-**Move to a cheaper rate (the trust-builder).** Refinance a Navi USDC loan to Suilend's lower borrow rate in a single atomic transaction, without the capital to unwind it yourself.
+**Move to a cheaper rate (the trust-builder).** Refinance a Navi USDC loan to the cheapest available money market in a single atomic transaction, without the capital to unwind it yourself. RefiRail reads the live borrow rate at both Suilend and AlphaLend and routes to whichever is cheaper, and you can override the destination by hand. Whichever venue you pick, the same PTB withdraws your collateral from Navi, deposits it into the destination, refreshes the oracle in-transaction, and reborrows your debt.
 
 Both run server-side as a dry-run against live mainnet first, so the app only ever hands your wallet a transaction that has already been proven not to abort.
 
@@ -40,8 +40,9 @@ Every operation is real on Sui mainnet — no testnet, no mocks. The full ledger
 
 - **Atomic deleverage** (DeepBook flash + fee-free two-hop), health 1.89 → 2.92: [`4S5bhsgZ…`](https://suiscan.xyz/mainnet/tx/4S5bhsgZhsrwjaavUNBAZKyDwWKxKfruUTUXD6jT3S8K)
 - **Atomic refinance** (Navi → Suilend, one PTB): [`BiMBPK7s…`](https://suiscan.xyz/mainnet/tx/BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK)
+- **Atomic refinance, second destination** (Navi → AlphaLend, one PTB — the multi-lender router routing to a different money market): [`3UgVGY2y…`](https://suiscan.xyz/mainnet/tx/3UgVGY2ydYTRsQFAV7MFpxFe9frnFgJVFPhxbyFKuvL6)
 
-RefiRail deploys **zero net-new Move** — it composes Navi, Suilend, DeepBook, and Pyth entirely at the PTB layer.
+RefiRail deploys **zero net-new Move** — it composes Navi, Suilend, AlphaLend, DeepBook, and Pyth entirely at the PTB layer.
 
 ## Tech stack
 
@@ -49,16 +50,17 @@ RefiRail deploys **zero net-new Move** — it composes Navi, Suilend, DeepBook, 
 - **@mysten/sui v2** — PTB construction, JSON-RPC client, `dryRunTransactionBlock`
 - **@mysten/dapp-kit** — wallet connect + client-side signing of server-built bytes
 - **@mysten/deepbook-v3** — fee-free flash loan, fee-free two-hop swap, live order-book reads
-- **@suilend/sdk** — obligation create / deposit / borrow
-- **@naviprotocol/lending** — repay / withdraw
+- **@suilend/sdk** — refinance destination: obligation create / deposit / borrow
+- **@alphafi/alphalend-sdk** — second refinance destination: position create / add collateral / borrow at the Move layer, with in-PTB Pyth refresh
+- **@naviprotocol/lending** — refinance source: repay / withdraw
 - **Pyth** — in-PTB oracle refresh
 
 ## API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/position?address=` | Live Navi position + Navi/Suilend borrow APRs |
-| POST | `/api/preview` | Build + dry-run the refinance PTB; returns signable bytes |
+| GET | `/api/position?address=` | Live Navi position + Navi/Suilend/AlphaLend borrow APRs + the cheapest-destination recommendation |
+| POST | `/api/preview` | Build + dry-run the refinance PTB for a chosen destination (`destId: suilend \| alphalend`); returns signable bytes |
 | POST | `/api/deleverage` | Size from a live DeepBook quote, build + dry-run; returns health-after + signable bytes |
 | GET | `/api/deepbook` | Live mid price, two-hop vs direct route comparison, order-book depth |
 
