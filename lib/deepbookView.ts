@@ -3,6 +3,7 @@
 // + order-book depth. All read-only (getQuantityOut/midPrice/getLevel2TicksFromMid). Real data only.
 import type { DeepBookClient } from "@mysten/deepbook-v3";
 import type { DeepBookView } from "./types";
+import { pickBestRoute } from "./deleverageEconomics";
 
 export async function getDeepBookView(db: DeepBookClient, refSui = 1): Promise<DeepBookView> {
   const mid = await db.midPrice("SUI_USDC");
@@ -26,8 +27,7 @@ export async function getDeepBookView(db: DeepBookClient, refSui = 1): Promise<D
   }
 
   // We hold no DEEP, so a fee-charging direct route is not executable → best = the fee-free two-hop.
-  const best: "twoHop" | "direct" =
-    direct.deepFee > 0 || !direct.available ? "twoHop" : direct.usdcOut > twoHop.usdcOut ? "direct" : "twoHop";
+  const best = pickBestRoute(twoHop, direct);
 
   // Order-book depth around mid.
   let bids: { price: number; qty: number }[] = [];

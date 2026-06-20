@@ -9,6 +9,7 @@ import { getPositionView } from "@/lib/position";
 import { sizeDeleverage } from "@/lib/deleverageQuote";
 import { buildDeleveragePTB } from "@/lib/deleverage";
 import { simulateRefinance } from "@/lib/simulate";
+import { computeDeleverageEconomics } from "@/lib/deleverageEconomics";
 import { withRetry } from "@/lib/retry";
 import { warm } from "@/lib/warm";
 import { toBase64 } from "@mysten/sui/utils";
@@ -56,16 +57,16 @@ export async function POST(req: Request) {
     // Economics — all from real reads (no fabrication). healthAfter is Navi-side (this position).
     const collatBeforeUsd = pos.collateral.usd ?? 0;
     const debtBeforeUsd = pos.debt.usd ?? 0;
-    const suiPrice = pos.collateral.amountHuman > 0 ? collatBeforeUsd / pos.collateral.amountHuman : 0;
-    const soldUsd = size.suiToSell * suiPrice;
-    const collatAfterUsd = +Math.max(0, collatBeforeUsd - soldUsd).toFixed(2);
-    const debtAfterUsd = +Math.max(0, debtBeforeUsd - size.repayHuman).toFixed(2);
     const healthBefore = pos.healthFactor;
-    let healthAfter: number | undefined;
-    if (healthBefore != null && collatBeforeUsd > 0 && debtAfterUsd > 0) {
-      const liqThreshold = (healthBefore * debtBeforeUsd) / collatBeforeUsd;
-      healthAfter = +((collatAfterUsd * liqThreshold) / debtAfterUsd).toFixed(2);
-    }
+    const econ = computeDeleverageEconomics({
+      collatBeforeUsd,
+      debtBeforeUsd,
+      collatHuman: pos.collateral.amountHuman,
+      suiToSell: size.suiToSell,
+      repayHuman: size.repayHuman,
+      healthBefore,
+    });
+    const { collatAfterUsd, debtAfterUsd, healthAfter } = econ;
     const surplusUsdc = +Math.max(0, size.quotedUsdcOut - size.repayHuman).toFixed(4);
 
     let txB64: string | undefined;

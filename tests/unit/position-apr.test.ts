@@ -17,11 +17,16 @@ async function testNaviUsdcAprFieldPath() {
   );
   assert.ok(usdc, `found native USDC pool (id=${NAVI.USDC_ASSET_ID})`);
 
-  const apr = usdc?.borrowIncentiveApyInfo?.vaultApr;
-  assert.ok(apr != null, "borrowIncentiveApyInfo.vaultApr is present");
-  const aprNum = Number(apr);
+  // DEV-020 (Issue 4, same-definition): the PRIMARY field is now `currentBorrowRate` — the raw
+  // on-chain borrow interest rate (1e27/RAY-scaled), the like-for-like analogue of Suilend's borrow
+  // APR. `borrowIncentiveApyInfo.vaultApr` is retained only as a fallback.
+  const ray = usdc?.currentBorrowRate;
+  assert.ok(ray != null, "currentBorrowRate (raw borrow rate) is present");
+  const aprNum = +((Number(ray) / 1e27) * 100).toFixed(2);
   assert.ok(aprNum > 0 && aprNum < 100, `navi USDC borrow APR in sane range: ${aprNum}%`);
-  console.log(`PASS  Navi USDC borrow APR field path -> ${aprNum.toFixed(2)}%`);
+  const fallback = usdc?.borrowIncentiveApyInfo?.vaultApr;
+  assert.ok(fallback != null, "vaultApr fallback still present");
+  console.log(`PASS  Navi USDC borrow APR via currentBorrowRate -> ${aprNum.toFixed(2)}% (vaultApr fallback ${Number(fallback).toFixed(2)}%)`);
 }
 
 function testSuilendCurveInterpolation() {
