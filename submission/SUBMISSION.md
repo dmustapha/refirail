@@ -17,6 +17,15 @@ Manage your Sui lending position in one click. Move it to a cheaper rate or de-r
 - Demo video: <PASTE YOUTUBE URL AFTER UPLOAD>
 - Network: Sui mainnet
 
+## Demo video (ready to upload)
+- File: `video/out/demo.mp4` (1:46, 1920x1080, with narration). Vertical social clip: `video/out/social.mp4`.
+- YouTube title: RefiRail — one-click atomic lending refinance + deleverage on Sui (DeepBook)
+- YouTube description:
+  RefiRail manages a Sui lending position in one click. Move a loan to the cheapest money market, or pay down risk, as a single atomic transaction with zero upfront capital, powered by a fee-free DeepBook flash loan. Best-rate router across Navi, Suilend, and AlphaLend. Proven on Sui mainnet.
+  Live: https://refirail.vercel.app
+  Code: https://github.com/dmustapha/refirail
+  Sui Overflow 2026, DeepBook track.
+
 ## Short description
 RefiRail turns a multi-step, capital-gated DeFi chore into one click. It moves a lending position to a cheaper money market, or pays down risk, inside a single Programmable Transaction Block that reverts if it would ever leave you worse off. No upfront capital, because a fee-free DeepBook flash loan front-runs the whole sequence.
 
