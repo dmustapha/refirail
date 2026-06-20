@@ -31,7 +31,8 @@ async function retry<T>(fn: () => Promise<T>, n = 4): Promise<T> {
 
 async function main() {
   const suiClient = makeSuiClient();
-  const sender = makeDemoKeypair().getPublicKey().toSuiAddress();
+  const kp = makeDemoKeypair();
+  const sender = kp.getPublicKey().toSuiAddress();
   const db = makeDeepBook(suiClient, sender);
   console.log(`\nRefiRail · deleverage dry-run\nsender ${sender}\n`);
 
@@ -79,6 +80,26 @@ async function main() {
   } else {
     console.log("\n❌ RED — see abort reason above.");
     process.exit(1);
+  }
+
+  // --execute: send the REAL mainnet tx ONCE (irreversible, spends gas). Gated behind the GREEN
+  // dryRun above — we never sign a PTB that would revert. Single shot (no retry → no double-submit).
+  if (process.argv.includes("--execute")) {
+    console.log("\n>>> signing + executing REAL deleverage on mainnet (irreversible)...");
+    const res = await suiClient.signAndExecuteTransaction({
+      signer: kp,
+      transaction: tx,
+      options: { showEffects: true, showBalanceChanges: true },
+    });
+    const status = res.effects?.status?.status;
+    console.log("executed:", `https://suiscan.xyz/mainnet/tx/${res.digest}`);
+    console.log("status:", status);
+    console.log(
+      "balanceChanges:",
+      (res.balanceChanges ?? []).map((b) => `${b.coinType.split("::").pop()}:${b.amount}`).join("  "),
+    );
+    if (status !== "success") process.exit(1);
+    console.log(`\nDELEVERAGE_DIGEST=${res.digest}`);
   }
 }
 
