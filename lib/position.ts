@@ -10,16 +10,21 @@ import type { PositionView } from "./types";
 const NAVI_POOLS_URL = "https://open-api.naviprotocol.io/api/navi/pools";
 
 async function naviUsdcBorrowApr(): Promise<number | undefined> {
+  // DEV-020 (Issue 4, same-definition): compare borrow-cost vs borrow-cost. `currentBorrowRate`
+  // is the raw on-chain borrow interest rate (1e27/RAY-scaled annual) straight from Navi's
+  // utilization rate model — the exact analogue of Suilend's interpolated borrow APR. Prefer it.
+  // `borrowIncentiveApyInfo.vaultApr` (~equal here: 8.445 vs 8.446) is a derived display field and
+  // shares the "incentive" namespace with reward APRs, so it's a weaker like-for-like; keep as fallback.
   try {
     const res = await fetch(NAVI_POOLS_URL).then((r) => r.json());
     const pools: any[] = res?.data ?? res ?? [];
     const usdc = pools.find(
       (p) => p.id === NAVI.USDC_ASSET_ID || String(p.coinType ?? "").endsWith("usdc::USDC"),
     );
+    const ray = usdc?.currentBorrowRate; // 1e27-scaled annual borrow rate
+    if (ray != null) return +((Number(ray) / 1e27) * 100).toFixed(2);
     const apr = usdc?.borrowIncentiveApyInfo?.vaultApr;
-    if (apr != null) return +Number(apr).toFixed(2);
-    const ray = usdc?.currentBorrowRate; // 1e27-scaled annual rate
-    return ray != null ? +((Number(ray) / 1e27) * 100).toFixed(2) : undefined;
+    return apr != null ? +Number(apr).toFixed(2) : undefined;
   } catch {
     return undefined;
   }
