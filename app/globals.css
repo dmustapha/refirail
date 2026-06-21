@@ -364,8 +364,9 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
   from { opacity: 0; transform: translateY(40px); filter: blur(6px); }
   to   { opacity: 1; transform: none;            filter: blur(0); }
 }
-.js-ready .reveal { opacity: 0; }
-.js-ready .reveal.in { animation: rr-reveal 0.9s var(--ease) both; will-change: opacity, transform, filter; }
+.reveal { opacity: 0; }
+.reveal.in { animation: rr-reveal 0.9s var(--ease) both; will-change: opacity, transform, filter; }
+.no-js .reveal { opacity: 1; }
 .reveal[data-d="1"] { animation-delay: 0.10s; }
 .reveal[data-d="2"] { animation-delay: 0.22s; }
 .reveal[data-d="3"] { animation-delay: 0.34s; }
@@ -385,7 +386,7 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
   html { scroll-behavior: auto; }
   .rail-fill { animation: none; transform: scaleX(1); }
   .rail-node { animation: none; left: 88%; }
-  .js-ready .reveal, .js-ready .reveal.in { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
+  .reveal, .reveal.in { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 

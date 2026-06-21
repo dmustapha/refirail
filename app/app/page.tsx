@@ -107,16 +107,23 @@ export default function Workspace() {
 
   function chooseDest(d: DestId) {
     setDest(d);
-    if (preview) doPreview(d, refiFraction); // re-run only if the user has already previewed
+    doPreview(d, refiFraction); // always re-preview on a destination change
   }
 
-  // Dragging the amount updates the label instantly; re-previews (debounced) only if already previewed.
+  // Dragging the amount updates the label instantly; the dry-run re-previews (debounced).
   function onRefiSlide(raw: number) {
     const f = snapRefi(raw);
     setRefiFraction(f);
     if (refiTimer.current) clearTimeout(refiTimer.current);
-    if (preview) refiTimer.current = setTimeout(() => doPreview(dest, f), 350);
+    refiTimer.current = setTimeout(() => doPreview(dest, f), 350);
   }
+
+  // Auto-preview the moment the user enters refinance mode (matches the de-risk panel), so the
+  // "Refinance" button arms itself from the live dry-run without a manual "Preview" click.
+  useEffect(() => {
+    if (mode === "refinance" && pos?.hasPosition) doPreview(dest, refiFraction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, pos?.hasPosition]);
 
   // Cross-lender selection. Only the Navi position is actionable (the engine source); others are view-only.
   const positions = pos?.positions ?? [];
