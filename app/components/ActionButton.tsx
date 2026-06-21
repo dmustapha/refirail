@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { fromBase64 } from "@mysten/sui/utils";
 
 export function ActionButton({
   txB64,
@@ -28,7 +27,10 @@ export function ActionButton({
     if (!txB64) return;
     setErr(null);
     try {
-      const tx = Transaction.from(fromBase64(txB64));
+      // txB64 carries the SERIALIZED transaction (tx.serialize() JSON), not built bytes. Built bytes
+      // trip dapp-kit's wallet-standard validation ("Invalid type: Expected Object but received
+      // Object"); a serialized intent lets the wallet build + sign it itself.
+      const tx = Transaction.from(txB64);
       const res = await mutateAsync({ transaction: tx });
       onDone(res.digest);
     } catch (e: any) {

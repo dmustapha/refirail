@@ -9,7 +9,6 @@ import { healthFrom } from "@/lib/deleverageEconomics";
 import { getNaviPosition } from "@/lib/position";
 import { withRetry } from "@/lib/retry";
 import { warm } from "@/lib/warm";
-import { toBase64 } from "@mysten/sui/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +62,9 @@ export async function POST(req: Request) {
     const healthAfter = healthFrom(pos.collateral.usd, pos.debt.usd, DEST_SUI_LIQ_THRESHOLD[dest]);
 
     let txB64: string | undefined;
-    if (sim.ok) txB64 = toBase64(await tx.build({ client: suiClient }));
+    // Serialize the transaction INTENT (not built bytes) so the browser wallet can build + sign it
+    // via dapp-kit. Built bytes trip dapp-kit's "Invalid type: Expected Object" wallet validation.
+    if (sim.ok) txB64 = await tx.toJSON();
 
     return NextResponse.json({
       ...sim,

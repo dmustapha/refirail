@@ -386,8 +386,11 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
   html { scroll-behavior: auto; }
   .rail-fill { animation: none; transform: scaleX(1); }
   .rail-node { animation: none; left: 88%; }
-  .reveal, .reveal.in { opacity: 1 !important; transform: none !important; filter: none !important; animation: none !important; transition: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  /* Keep the reveal keyframe ON even here. Some environments MISreport prefers-reduced-motion (the
+     AlphaAttest build hit the exact same thing) — honoring it falsely freezes the whole page static.
+     The reveal is a gentle one-shot rise, not a loop, so it stays. Re-asserts past the * reset above. */
+  .reveal.in { animation: rr-reveal 0.9s var(--ease) both !important; }
 }
 
 /* Cross-lender position picker */
