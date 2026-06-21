@@ -1,9 +1,8 @@
 // File: lib/protocols/suilend.ts
 import type { Transaction, TransactionResult } from "@mysten/sui/transactions";
 import { SuilendClient } from "@suilend/sdk";
-import { parseObligation } from "@suilend/sdk/parsers/obligation";
-import { parseReserve } from "@suilend/sdk/parsers/reserve";
 import { makeSuiGrpcClient, makeSuiClient } from "../clients";
+import { makeDeepBook } from "./deepbook";
 import { SUILEND, COINS } from "../config";
 import { withRetry } from "../retry";
 import type { LenderPosition } from "../types";
@@ -104,13 +103,16 @@ export async function appendSuilendRepayWithdraw(
   return { withdrawnCoin };
 }
 
-// Read the user's Suilend obligations (for the cross-lender position view). Read-only.
-// Enumerate owner caps (cheap; empty for wallets with no Suilend obligations -> early return). Only
-// when caps exist do we pay for client init + the parsed reserve map. Each leg is try/caught so any
-// parse surprise degrades to "no Suilend positions" rather than breaking the page.
-const sNum = (d: unknown): number => Number((d as { toString(): string })?.toString?.() ?? d ?? 0);
-const sCoinType = (r: unknown): string =>
-  String((r as { name?: string })?.name ?? r ?? "");
+// Read the user's Suilend obligations for the cross-lender view (read-only). The SDK's
+// parseObligation/parseReserve layer needs full metadata for all ~45 reserves (fails on exotic coins)
+// and has coinType-form mismatches, so we bypass it: getObligation returns the raw obligation, which
+// carries per-asset USD `marketValue` + the health inputs as on-chain Decimals (WAD-scaled, /1e18).
+// Token amounts are derived from the live SUI spot (display only). Empty/throw -> [] (graceful).
+const wad = (d: unknown): number => {
+  const v = (d as { value?: string | number })?.value;
+  try { return v != null ? Number(BigInt(v)) / 1e18 : 0; } catch { return 0; }
+};
+const ctName = (ct: unknown): string => String((ct as { name?: string })?.name ?? ct ?? "");
 
 export async function getSuilendPositions(address: string): Promise<LenderPosition[]> {
   try {
@@ -118,54 +120,36 @@ export async function getSuilendPositions(address: string): Promise<LenderPositi
     const caps = await withRetry(() =>
       SuilendClient.getObligationOwnerCaps(address, [SUILEND.LENDING_MARKET_TYPE], grpc as never),
     );
-    if (!caps || caps.length === 0) return []; // demo wallet + most wallets exit here (one cheap call)
+    if (!caps || caps.length === 0) return []; // cheap exit: most wallets have no Suilend obligation
 
     const client = await initSuilend();
-    const reserves: unknown[] = (client as { lendingMarket?: { reserves?: unknown[] } }).lendingMarket?.reserves ?? [];
-    const jsonRpc = makeSuiClient();
-
-    // Coin metadata for each reserve (needed by parseReserve). Best-effort per coin.
-    const coinMetadataMap: Record<string, unknown> = {};
-    for (const r of reserves) {
-      const ct = sCoinType((r as { coinType?: unknown })?.coinType);
-      if (!ct || coinMetadataMap[ct]) continue;
-      try {
-        const md = await jsonRpc.getCoinMetadata({ coinType: ct });
-        if (md) coinMetadataMap[ct] = md;
-      } catch { /* metadata is non-fatal */ }
-    }
-    const parsedReserveMap: Record<string, unknown> = {};
-    for (const r of reserves) {
-      const ct = sCoinType((r as { coinType?: unknown })?.coinType);
-      if (!ct) continue;
-      try { parsedReserveMap[ct] = parseReserve(r as never, coinMetadataMap as never); } catch { /* skip bad reserve */ }
-    }
+    let suiPrice = 0.71; // fallback; convert the on-chain USD marketValue into a SUI amount for display
+    try { suiPrice = await makeDeepBook(makeSuiClient(), address).midPrice("SUI_USDC"); } catch { /* fallback */ }
 
     const out: LenderPosition[] = [];
-    for (const cap of caps as Array<{ obligationId?: unknown }>) {
+    for (const cap of caps as Array<{ obligationId?: { bytes?: string } | string }>) {
       try {
-        const obligationId = String((cap.obligationId as { bytes?: string })?.bytes ?? cap.obligationId ?? "");
-        if (!obligationId) continue;
-        const obligation = await client.getObligation(obligationId);
-        const parsed = parseObligation(obligation as never, parsedReserveMap as never) as {
-          id?: string;
-          deposits?: Array<{ coinType: string; depositedAmount?: unknown; depositedAmountUsd?: unknown }>;
-          borrows?: Array<{ coinType: string; borrowedAmount?: unknown; borrowedAmountUsd?: unknown }>;
-          borrowLimitUsd?: unknown; weightedBorrowsUsd?: unknown;
+        const oid = String((cap.obligationId as { bytes?: string })?.bytes ?? cap.obligationId ?? "");
+        if (!oid) continue;
+        const ob = (await client.getObligation(oid)) as unknown as {
+          deposits?: Array<{ coinType: unknown; marketValue?: unknown }>;
+          borrows?: Array<{ coinType: unknown; marketValue?: unknown }>;
+          depositedValueUsd?: unknown; unweightedBorrowedValueUsd?: unknown;
+          weightedBorrowedValueUsd?: unknown; unhealthyBorrowValueUsd?: unknown;
         };
-        const suiDep = (parsed.deposits ?? []).find((d) => String(d.coinType).includes("sui::SUI"));
-        const usdcBor = (parsed.borrows ?? []).find((b) => String(b.coinType).toLowerCase().includes("usdc"));
-        if (!suiDep && !usdcBor) continue;
-        const collateral = suiDep
-          ? { type: COINS.SUI, amountHuman: +sNum(suiDep.depositedAmount).toFixed(4), usd: +sNum(suiDep.depositedAmountUsd).toFixed(2) }
+        const suiDep = (ob.deposits ?? []).find((d) => ctName(d.coinType).includes("sui::SUI"));
+        const usdcBor = (ob.borrows ?? []).find((b) => ctName(b.coinType).toLowerCase().includes("usdc"));
+        const collatUsd = suiDep ? wad(suiDep.marketValue) : wad(ob.depositedValueUsd);
+        const debtUsd = usdcBor ? wad(usdcBor.marketValue) : wad(ob.unweightedBorrowedValueUsd);
+        if (collatUsd < 0.05 && debtUsd < 0.05) continue; // skip dust obligations
+        const weighted = wad(ob.weightedBorrowedValueUsd);
+        const healthFactor = weighted > 0 ? +(wad(ob.unhealthyBorrowValueUsd) / weighted).toFixed(2) : undefined;
+        const collateral = suiDep && suiPrice > 0
+          ? { type: COINS.SUI, amountHuman: +(collatUsd / suiPrice).toFixed(4), usd: +collatUsd.toFixed(2) }
           : undefined;
-        const debt = usdcBor
-          ? { type: COINS.USDC, amountHuman: +sNum(usdcBor.borrowedAmount).toFixed(4), usd: +sNum(usdcBor.borrowedAmountUsd).toFixed(2) }
-          : undefined;
-        const limit = sNum(parsed.borrowLimitUsd);
-        const weighted = sNum(parsed.weightedBorrowsUsd);
-        const healthFactor = weighted > 0 ? +(limit / weighted).toFixed(2) : undefined;
-        out.push({ positionId: parsed.id ?? obligationId, collateral, debt, healthFactor });
+        const debt = usdcBor ? { type: COINS.USDC, amountHuman: +debtUsd.toFixed(4), usd: +debtUsd.toFixed(2) } : undefined;
+        if (!collateral && !debt) continue;
+        out.push({ positionId: oid, collateral, debt, healthFactor });
       } catch { /* skip unreadable obligation */ }
     }
     return out;
