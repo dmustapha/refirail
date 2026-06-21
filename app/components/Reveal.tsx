@@ -34,7 +34,13 @@ export function Reveal() {
       root.querySelectorAll?.(".reveal:not(.in)").forEach(take);
     };
 
-    scan(document);
+    // Delay the FIRST scan so the entrance plays a beat AFTER the page is painted and the eye has
+    // landed — otherwise the whole hero animates and settles within ~0.5s of load, before anyone is
+    // looking, and reads as a static page. Scroll reveals are unaffected (they fire on scroll). The
+    // MutationObserver below still catches async content immediately.
+    const firstScan = reduce
+      ? (scan(document), null)
+      : setTimeout(() => scan(document), 320);
 
     const mo = new MutationObserver((muts) => {
       muts.forEach((m) => {
@@ -49,6 +55,7 @@ export function Reveal() {
     mo.observe(document.body, { childList: true, subtree: true });
 
     return () => {
+      if (firstScan) clearTimeout(firstScan);
       mo.disconnect();
       io?.disconnect();
     };
