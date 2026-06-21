@@ -58,10 +58,13 @@ export async function appendAlphalendDepositBorrow(
   const CLOCK = c.SUI_CLOCK_OBJECT_ID;
 
   // 1. oracle refresh for BOTH assets, in-PTB, BEFORE borrow (the proven ordering; retry transient Pyth/gRPC blips).
-  await withRetry(() => client.updatePrices(tx, [args.collateralType, args.debtType]));
+  // `tx as never`: the AlphaLend SDK types its Transaction param against a nested @mysten/sui (via the
+  // Cetus aggregator), which is nominally distinct from our 2.19 Transaction (#private brand) but
+  // structurally identical at runtime. The cast bypasses the cross-copy type clash.
+  await withRetry(() => client.updatePrices(tx as never, [args.collateralType, args.debtType]));
 
   // 2. fresh position cap (handle threaded through add_collateral + borrow; transferred by the composer)
-  const cap = client.createPosition(tx) as unknown as TransactionResult;
+  const cap = client.createPosition(tx as never) as unknown as TransactionResult;
 
   // 3. deposit the SUI coin we already hold (proceeds of the Navi withdraw)
   tx.moveCall({

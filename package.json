@@ -19,7 +19,7 @@
     "@alphafi/alphalend-sdk": "3.0.1",
     "@mysten/dapp-kit": "^1.1.1",
     "@mysten/deepbook-v3": "latest",
-    "@mysten/sui": "^2.18.0",
+    "@mysten/sui": "^2.19.0",
     "@naviprotocol/lending": "1.4.6",
     "@pythnetwork/pyth-sui-js": "latest",
     "@suilend/sdk": "3.0.4",
