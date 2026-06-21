@@ -8,6 +8,7 @@ import { makeDeepBook } from "@/lib/protocols/deepbook";
 import { getNaviPosition } from "@/lib/position";
 import { sizeDeleverage } from "@/lib/deleverageQuote";
 import { buildDeleveragePTB } from "@/lib/deleverage";
+import { serializeSignableIntent } from "@/lib/intent";
 import { simulateRefinance } from "@/lib/simulate";
 import { computeDeleverageEconomics } from "@/lib/deleverageEconomics";
 import { withRetry } from "@/lib/retry";
@@ -81,8 +82,9 @@ export async function POST(req: Request) {
 
     let txB64: string | undefined;
     // Serialize the transaction INTENT (not built bytes) so the browser wallet can build + sign it
-    // via dapp-kit. Built bytes trip dapp-kit's "Invalid type: Expected Object" wallet validation.
-    if (sim.ok) txB64 = await tx.toJSON();
+    // via dapp-kit, and normalize the expiration to `None` so wallets bundling an older @mysten/sui
+    // (which rejects the newer ValidDuring variant with "Invalid type: Expected Object") can sign it.
+    if (sim.ok) txB64 = await serializeSignableIntent(tx);
 
     const result: DeleverageResult = {
       ok: sim.ok,

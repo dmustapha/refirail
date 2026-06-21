@@ -29,6 +29,7 @@ export function DeleveragePanel({
   currentHealth,
   debtHuman,
   collHuman,
+  onSettled,
 }: {
   address: string;
   hasPosition: boolean;
@@ -36,6 +37,7 @@ export function DeleveragePanel({
   currentHealth?: number;
   debtHuman?: number;
   collHuman?: number;
+  onSettled?: (digest: string) => void;
 }) {
   const [fraction, setFraction] = useState(0.5);
   const [res, setRes] = useState<DeleverageResult | null>(null);
@@ -173,7 +175,7 @@ export function DeleveragePanel({
             disabled={!res?.ok || !canAct}
             label={canAct ? "Sign & settle" : "Connect a wallet to settle"}
             pendingLabel="Settling…"
-            onDone={setDigest}
+            onDone={(d) => { setDigest(d); onSettled?.(d); }}
           />
           <span className="exec-note">
             <span className="lock">&#9679;</span> Dry-run proven. Reverts if it would ever leave you worse off.

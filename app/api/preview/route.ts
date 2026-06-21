@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { makeSuiClient } from "@/lib/clients";
 import { buildRefinancePTB } from "@/lib/refinance";
+import { serializeSignableIntent } from "@/lib/intent";
 import { simulateRefinance } from "@/lib/simulate";
 import { healthFrom } from "@/lib/deleverageEconomics";
 import { getNaviPosition } from "@/lib/position";
@@ -63,8 +64,9 @@ export async function POST(req: Request) {
 
     let txB64: string | undefined;
     // Serialize the transaction INTENT (not built bytes) so the browser wallet can build + sign it
-    // via dapp-kit. Built bytes trip dapp-kit's "Invalid type: Expected Object" wallet validation.
-    if (sim.ok) txB64 = await tx.toJSON();
+    // via dapp-kit, and normalize the expiration to `None` so wallets bundling an older @mysten/sui
+    // (which rejects the newer ValidDuring variant with "Invalid type: Expected Object") can sign it.
+    if (sim.ok) txB64 = await serializeSignableIntent(tx);
 
     return NextResponse.json({
       ...sim,

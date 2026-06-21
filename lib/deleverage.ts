@@ -15,6 +15,7 @@ import {
   appendSwapSuiToUsdcTwoHop,
 } from "./protocols/deepbook";
 import { appendNaviOracleRefresh, appendNaviRepayUSDC, appendNaviWithdrawSUI } from "./protocols/navi";
+import { addReplayProtectionPrimer } from "./primer";
 
 export interface DeleverageParams {
   sender: string;
@@ -54,6 +55,10 @@ export async function buildDeleveragePTB(p: DeleverageParams): Promise<Transacti
 
   // 6. sweep surplus USDC + leftover SUI + DEEP dust back to the user.
   tx.transferObjects([surplus, suiRemainder, ...deepRemainders], p.sender);
+
+  // 7. add one address-owned input so this otherwise shared-only PTB satisfies Sui's replay-protection
+  //    rule with a `None` expiration (older wallets cannot parse the ValidDuring variant). See lib/primer.ts.
+  await addReplayProtectionPrimer(tx, p.suiClient, p.sender);
 
   return tx;
 }

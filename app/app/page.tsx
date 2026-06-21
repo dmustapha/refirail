@@ -40,6 +40,7 @@ export default function Workspace() {
   const [posError, setPosError] = useState(false);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [digest, setDigest] = useState<string | null>(null);
+  const [settleTick, setSettleTick] = useState(0); // bumps on ANY settle (refi or de-risk) to refresh the position
   const [loading, setLoading] = useState(false);
   const [dest, setDest] = useState<DestId>("suilend");
   const [refiFraction, setRefiFraction] = useState(1.0);
@@ -60,6 +61,20 @@ export default function Workspace() {
       .catch(() => setPosError(true))
       .finally(() => setPosLoading(false));
   }, [address]);
+
+  // After a successful settle, silently refresh the live position so the panel shows the NEW health
+  // and balances (the on-screen win) instead of the pre-transaction snapshot. Small delay lets the
+  // fullnode reflect the just-executed transaction before we re-read.
+  useEffect(() => {
+    if (!settleTick) return;
+    const t = setTimeout(() => {
+      fetch(`/api/position?address=${address}`)
+        .then((r) => r.json())
+        .then((p: PositionView) => setPos(p))
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [settleTick, address]);
 
   // One-shot 50% paydown preview so the "Reduce my risk" fork card can show a real health payoff.
   useEffect(() => {
@@ -226,6 +241,7 @@ export default function Workspace() {
                   currentHealth={pos.healthFactor}
                   debtHuman={pos.debt?.amountHuman}
                   collHuman={pos.collateral?.amountHuman}
+                  onSettled={() => setSettleTick((t) => t + 1)} // refresh the live position without touching the refi success card
                 />
               ) : (
                 <div className="card hero-panel">
@@ -303,7 +319,7 @@ export default function Workspace() {
                             disabled={!preview?.ok || !connected}
                             label={connected ? `Refinance ${refiFraction < 1 ? Math.round(refiFraction * 100) + "% " : ""}to ${destLabel}` : "Connect a wallet to refinance"}
                             pendingLabel="Refinancing…"
-                            onDone={setDigest}
+                            onDone={(d) => { setDigest(d); setSettleTick((t) => t + 1); }}
                           />
                         </div>
                         {loading && <Progress />}

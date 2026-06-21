@@ -6,6 +6,7 @@ import { appendNaviRepayUSDC, appendNaviWithdrawSUI, appendNaviOracleRefresh } f
 import { initSuilend, appendSuilendDepositBorrow } from "./protocols/suilend";
 import { initAlphalend, appendAlphalendDepositBorrow } from "./protocols/alphalend";
 import { computeFlashAmounts } from "./amounts";
+import { addReplayProtectionPrimer } from "./primer";
 import { COINS } from "./config";
 
 // Refinance destinations (the money market we move the debt INTO). Source stays Navi.
@@ -77,6 +78,10 @@ export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction
 
   // 10. sweep any USDC remainder/dust to the user
   tx.transferObjects([remainder], p.sender);
+
+  // 11. add one address-owned input so this otherwise shared-only PTB satisfies Sui's replay-protection
+  //     rule with a `None` expiration (older wallets cannot parse the ValidDuring variant). See lib/primer.ts.
+  await addReplayProtectionPrimer(tx, p.suiClient, p.sender);
 
   return tx;
 }

@@ -15,8 +15,8 @@ operations, never framed as third-party usage.
 | DeepBook swaps (SUI↔USDC, fee-free two-hop) | 30 |
 | Deleverages (DeepBook-powered, atomic) | 3 |
 | Borrow-backs (Navi, position reset) | 0 |
-| Atomic revert-proofs (safety, $0 dryRun) | 2 |
-| **Total signed mainnet ops** | **33** |
+| **Total signed mainnet ops** (swaps + deleverages) | **33** |
+| Atomic revert-proofs (safety — dryRun aborts, *not* signed/submitted) | 2 |
 
 ## DeepBook swaps
 - `swap-sui-usdc` — 0.35 SUI → ~0.2469 USDC — [BM9ioQ3PhTDG…](https://suiscan.xyz/mainnet/tx/BM9ioQ3PhTDG1ZKDhBEDeNWhuszXHSgZX2FjN7w3ExfG)
