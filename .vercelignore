@@ -1,0 +1,9 @@
+# Non-runtime dirs — not needed in the Vercel build (Vercel CLI ignores .gitignore, so list them here).
+video
+screenshots
+design
+research
+ai
+tasks
+submission
+docs
