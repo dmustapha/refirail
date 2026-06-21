@@ -28,10 +28,10 @@ export default function Landing() {
             Move your loan, or <em>de-risk</em> it. One signature.
           </h1>
           <p className="subhead reveal" data-d="3">
-            RefiRail manages a Sui lending position in a single atomic transaction with zero upfront
-            capital. Move it to a cheaper rate, or pay down debt to lift your health factor. If any
-            step would leave you worse off, the whole transaction reverts and your position is
-            untouched.
+            Pay less interest, or step back from liquidation, in one signature with none of your
+            own capital. RefiRail moves your Sui loan to a cheaper lender or pays it down on the
+            spot. If any step would leave you worse off, the whole thing reverts and your position
+            is untouched.
           </p>
 
           {/* The Rail: signature animation */}
@@ -50,7 +50,7 @@ export default function Landing() {
               </div>
               <div className="rail-end to">
                 <span className="label">Settled into</span>
-                <span className="name">Suilend</span>
+                <span className="name">a cheaper lender</span>
               </div>
             </div>
           </div>
@@ -72,7 +72,8 @@ export default function Landing() {
               <h3 className="op-h">Reduce my risk</h3>
               <p className="op-p">
                 Pay down a slice of USDC debt with SUI collateral, routed fee-free through DeepBook.
-                Pick 25, 50, or 75 percent and the health factor climbs.
+                Pick 25, 50, or 75 percent and your health factor (how far you are from liquidation)
+                climbs.
               </p>
               <LiveHeroNumbers which="health" />
             </article>
@@ -82,8 +83,8 @@ export default function Landing() {
               <p className="op-tag muted">The trust-builder</p>
               <h3 className="op-h">Move to a cheaper rate</h3>
               <p className="op-p">
-                Refinance the Navi loan to Suilend&apos;s lower borrow APR in one atomic PTB. Secondary,
-                but it proves the engine generalizes across lenders.
+                Refinance the Navi loan to a cheaper lender, Suilend or AlphaLend, in one
+                signature. The engine routes to whichever rate is lowest.
               </p>
               <LiveHeroNumbers which="apr" />
             </article>
@@ -112,7 +113,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <footer className="shell foot">
+        <footer className="shell foot reveal">
           <div className="foot-grid">
             <div>
               <p className="fw">RefiRail</p>

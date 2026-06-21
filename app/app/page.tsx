@@ -45,6 +45,7 @@ export default function Workspace() {
   const [refiFraction, setRefiFraction] = useState(1.0);
   const refiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedPosId, setSelectedPosId] = useState<string>("");
+  const [deriskAfter, setDeriskAfter] = useState<number | null>(null); // 50% paydown health, for the fork card payoff
 
   useEffect(() => {
     if (!address) { setPosLoading(false); return; }
@@ -59,6 +60,26 @@ export default function Workspace() {
       .catch(() => setPosError(true))
       .finally(() => setPosLoading(false));
   }, [address]);
+
+  // One-shot 50% paydown preview so the "Reduce my risk" fork card can show a real health payoff.
+  useEffect(() => {
+    if (!pos?.hasPosition) { setDeriskAfter(null); return; }
+    let alive = true;
+    fetch("/api/deleverage", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address, fraction: 0.5 }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (alive && d?.ok && d.healthAfter != null) setDeriskAfter(d.healthAfter); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [address, pos?.hasPosition]);
+
+  // Recommended-destination APR (the cheaper venue) for the refinance fork card payoff.
+  const recDestApr =
+    pos?.recommendedDest === "alphalend" ? pos?.alphalendAprPct
+    : pos?.recommendedDest === "suilend" ? pos?.suilendAprPct
+    : undefined;
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -115,11 +136,11 @@ export default function Workspace() {
         </header>
 
         <div className="app-title reveal">
-          <h2>Your position, ready to settle.</h2>
+          <h2>One loan. Two ways to improve it.</h2>
           <p>
-            {isDemoView
-              ? "Read-only preview, no wallet wall. Drag the control and the engine dry-runs the whole atomic transaction before you ever sign."
-              : "Drag the control and the engine dry-runs the whole atomic transaction before you ever sign."}
+            RefiRail moves your Sui loan to a cheaper rate, or pays it down to keep you safe from
+            liquidation. Each takes a single signature, with none of your own capital.
+            {isDemoView ? " This is a live read-only preview; connect a wallet to act on your own loan." : ""}
           </p>
         </div>
 
@@ -140,12 +161,47 @@ export default function Workspace() {
             {pos.positionsNote && <p className="muted-note" style={{ marginTop: 8 }}>{pos.positionsNote}</p>}
             {actionable ? (
             <>
-            <div className="modes reveal" role="group" aria-label="Operation">
-              <button className="mode-btn" aria-pressed={mode === "deleverage"} onClick={() => switchMode("deleverage")}>
-                Reduce my risk
+            <p className="fork-q reveal">What do you want to do?</p>
+            <div className="op-fork reveal" data-d="1" role="group" aria-label="Choose an operation">
+              <button
+                className={`op-choice${mode === "deleverage" ? " on" : ""}`}
+                aria-pressed={mode === "deleverage"}
+                onClick={() => switchMode("deleverage")}
+              >
+                <span className="oc-head">
+                  <span className="oc-icon" aria-hidden="true">&#8595;</span>
+                  <span className="oc-title">Reduce my risk</span>
+                </span>
+                <span className="oc-sub">Pay down debt with your collateral. Your health factor goes up.</span>
+                <span className="oc-payoff">
+                  <span className="oc-k">Health</span>
+                  <b>{pos.healthFactor != null ? pos.healthFactor.toFixed(2) : "n/a"}</b>
+                  <span className="oc-arr">&#8594;</span>
+                  <b className="up">{deriskAfter != null ? deriskAfter.toFixed(2) : "higher"}</b>
+                </span>
               </button>
-              <button className="mode-btn" aria-pressed={mode === "refinance"} onClick={() => switchMode("refinance")}>
-                Move to a cheaper rate
+              <button
+                className={`op-choice${mode === "refinance" ? " on" : ""}`}
+                aria-pressed={mode === "refinance"}
+                onClick={() => switchMode("refinance")}
+              >
+                <span className="oc-head">
+                  <span className="oc-icon" aria-hidden="true">&#8644;</span>
+                  <span className="oc-title">Move to a cheaper rate</span>
+                </span>
+                <span className="oc-sub">Refinance your loan to a lower-interest lender. Your APR goes down.</span>
+                <span className="oc-payoff">
+                  <span className="oc-k">APR</span>
+                  <b>{pos.naviAprPct != null ? `${pos.naviAprPct.toFixed(1)}%` : "n/a"}</b>
+                  {recDestApr != null ? (
+                    <>
+                      <span className="oc-arr">&#8594;</span>
+                      <b className="down">{recDestApr.toFixed(1)}%</b>
+                    </>
+                  ) : (
+                    <span className="oc-note">already lowest</span>
+                  )}
+                </span>
               </button>
             </div>
 
@@ -172,11 +228,11 @@ export default function Workspace() {
                     return (
                       <>
                         <div className="hp-left">
-                          <p className="hp-eyebrow">The trust-builder · Move to a cheaper rate</p>
+                          <p className="hp-eyebrow">Move to a cheaper rate</p>
                           <h3 className="hp-h">Refinance to {destLabel}.</h3>
                           <p className="hp-sub">
-                            Move the Navi loan onto a lower borrow APR in one atomic PTB, without the
-                            capital to unwind it yourself.
+                            Move your Navi loan onto {destLabel}&apos;s lower interest rate in one
+                            signature, without putting up any capital to unwind it yourself.
                           </p>
                         </div>
 
@@ -264,10 +320,15 @@ export default function Workspace() {
               )}
             </div>
 
-            <div className="deepbook reveal" data-d="2">
-              <p className="card-label" style={{ marginTop: 32 }}>DeepBook best execution</p>
-              <DeepBookPanel />
-            </div>
+            <details className="deepbook-disclosure reveal" data-d="2">
+              <summary>
+                <span className="dd-q">Show the routing</span>
+                <span className="dd-hint">how the swap stays fee-free on DeepBook</span>
+              </summary>
+              <div className="deepbook">
+                <DeepBookPanel />
+              </div>
+            </details>
             </>
             ) : (
               <div className="grid reveal" data-d="1">

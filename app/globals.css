@@ -350,9 +350,11 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
 .foot .fmeta span b { color: var(--ivory-dim); font-weight: 500; }
 
 /* ---------- ENTRANCE + SCROLL REVEALS ---------- */
-/* Only hide when JS is ready (no-JS keeps content visible). IntersectionObserver adds .in. */
-.js-ready .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); will-change: opacity, transform; }
-.js-ready .reveal.in { opacity: 1; transform: none; }
+/* Only hide when JS is ready (no-JS keeps content visible). IntersectionObserver adds .in.
+   The transition lives on .in (not the base) so adding js-ready hides INSTANTLY (no fade-out
+   flash); the entrance animates only when .in lands. */
+.js-ready .reveal { opacity: 0; transform: translateY(26px); will-change: opacity, transform; }
+.js-ready .reveal.in { opacity: 1; transform: none; transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
 .reveal[data-d="1"] { transition-delay: 0.06s; }
 .reveal[data-d="2"] { transition-delay: 0.14s; }
 .reveal[data-d="3"] { transition-delay: 0.22s; }
@@ -403,3 +405,43 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
 /* "projected" honesty labels on modeled health/balances */
 .proj { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ivory-faint); margin-left: 7px; }
 .proj-note { font-size: 12px; color: var(--ivory-faint); margin-top: 14px; line-height: 1.5; }
+
+/* Inline jargon gloss (under a label) + positions-strip explainer */
+.gloss { display: block; font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ivory-faint); margin-top: 3px; line-height: 1.35; }
+.strip-hint { font-size: 12.5px; color: var(--ivory-faint); margin-top: 6px; line-height: 1.5; max-width: 60ch; }
+
+/* ---------- OPERATION FORK (two outcome cards, both visible) ---------- */
+.fork-q { font-size: 13px; color: var(--ivory-dim); margin: 26px 0 14px; }
+.op-fork { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .op-fork { grid-template-columns: 1fr; } }
+.op-choice {
+  display: flex; flex-direction: column; gap: 12px; text-align: left;
+  padding: 22px 22px 20px; border-radius: 16px; cursor: pointer;
+  background: linear-gradient(180deg, var(--ink-1), var(--ink)); border: 1px solid var(--hair-strong);
+  font-family: var(--sans); color: var(--ivory);
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease), box-shadow 0.18s var(--ease), opacity 0.18s var(--ease);
+}
+.op-choice:not([aria-pressed="true"]) { opacity: 0.78; }
+@media (hover: hover) { .op-choice:hover:not([aria-pressed="true"]) { opacity: 1; border-color: var(--aqua-line); } }
+.op-choice[aria-pressed="true"] { border-color: var(--aqua-line); background: var(--aqua-soft); box-shadow: 0 0 28px rgba(77, 162, 255, 0.18); }
+.op-choice:active { transform: translateY(1px); }
+.oc-head { display: flex; align-items: center; gap: 12px; }
+.oc-icon { font-family: var(--mono); font-size: 18px; line-height: 1; color: var(--aqua); width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--aqua-soft); flex: 0 0 auto; }
+.oc-title { font-family: var(--serif); font-size: 24px; line-height: 1; color: var(--ivory); }
+.oc-sub { font-size: 14px; color: var(--ivory-dim); line-height: 1.5; }
+.oc-payoff { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; font-family: var(--mono); font-size: 17px; }
+.oc-payoff .oc-k { font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ivory-faint); }
+.oc-payoff b { font-weight: 500; color: var(--ivory); }
+.oc-payoff b.up, .oc-payoff b.down { color: var(--mint); }
+.oc-arr { color: var(--ivory-faint); }
+.oc-note { font-family: var(--sans); font-size: 12.5px; color: var(--ivory-faint); }
+
+/* DeepBook demoted to an opt-in disclosure (proof, not the headline act) */
+.deepbook-disclosure { margin-top: 30px; border-top: 1px solid var(--hair); padding-top: 18px; }
+.deepbook-disclosure > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 6px 0; }
+.deepbook-disclosure > summary::-webkit-details-marker { display: none; }
+.deepbook-disclosure > summary::before { content: "\203A"; font-family: var(--mono); color: var(--aqua); transition: transform 0.18s var(--ease); display: inline-block; }
+.deepbook-disclosure[open] > summary::before { transform: rotate(90deg); }
+.deepbook-disclosure .dd-q { font-size: 14px; font-weight: 600; color: var(--ivory); }
+.deepbook-disclosure .dd-hint { font-size: 12.5px; color: var(--ivory-faint); }
+@media (hover: hover) { .deepbook-disclosure > summary:hover .dd-q { color: var(--aqua); } }

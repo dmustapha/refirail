@@ -38,6 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
       <body>
+        {/* Mark JS-ready BEFORE first paint so .reveal elements start hidden (no flash-then-hide).
+            No-JS keeps content visible; reduced-motion CSS forces it visible regardless. */}
+        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-ready')" }} />
         <Providers>{children}</Providers>
       </body>
     </html>

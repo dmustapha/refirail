@@ -7,7 +7,7 @@ export function Progress() {
       <span className="p-node n1" />
       <span className="p-node n2" />
       <span className="p-node n3" />
-      <span className="p-label">Simulating across DeepBook, Navi and Suilend</span>
+      <span className="p-label">Simulating across DeepBook, Navi, Suilend and AlphaLend</span>
     </div>
   );
 }

@@ -24,6 +24,7 @@ export function PositionPicker({
   return (
     <div className="positions-strip reveal" role="group" aria-label="Your positions across lenders">
       <p className="card-label">Your positions across lenders</p>
+      <p className="strip-hint">RefiRail acts on your Navi loan. Positions on other lenders are shown for context.</p>
       <div className="pos-chips">
         {positions.map((p) => {
           const on = p.id === selectedId;
@@ -38,7 +39,7 @@ export function PositionPicker({
               <span className="pc-top">
                 <span className="pc-lender">{LENDER_LABEL[p.protocol] ?? p.protocol}</span>
                 <span className={`pc-tag${p.actionable ? " act" : ""}`}>
-                  {p.actionable ? "Actionable" : "View only"}
+                  {p.actionable ? "Act on this" : "View only"}
                 </span>
               </span>
               <span className="pc-amts">
