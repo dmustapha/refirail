@@ -30,6 +30,15 @@ async function main() {
   console.log("/api/position (GET)");
   let r = await hit("GET", `/api/position?address=${ADDR}`);
   check("position valid", r.status === 200, `(${r.status})`);
+  try {
+    const j = JSON.parse(r.text);
+    check("position has positions[]", Array.isArray(j.positions), `(${typeof j.positions})`);
+    if (Array.isArray(j.positions)) {
+      check("position[] well-formed", j.positions.every((p) => p.id && p.protocol && typeof p.actionable === "boolean"));
+      const navi = j.positions.find((p) => p.protocol === "navi");
+      check("position[] has actionable navi", !!navi && navi.actionable === true);
+    }
+  } catch { check("position json", false); }
   for (const [label, addr] of [["missing", null], ["empty", ""], ["non-hex", "0xZZZ"], ["short", "0x1234"], ["xss", XSS], ["sqli", SQLI]]) {
     r = await hit("GET", `/api/position${addr === null ? "" : `?address=${encodeURIComponent(addr)}`}`);
     check(`position ${label}`, r.status === 400, `→ ${r.status}`);
@@ -37,19 +46,37 @@ async function main() {
     check(`position ${label} no-500`, r.status !== 500);
   }
 
-  // ---- POST /api/preview ----
+  // ---- POST /api/preview (server-reads the live position; body = {address, fraction?, destId?}) ----
   console.log("/api/preview (POST)");
-  r = await hit("POST", "/api/preview", { address: ADDR, debtAtomic: "2000000", collateralAtomic: "6000000000" });
+  // Pre-warm: the FIRST preview can race the cold Suilend gRPC init (~12s) and 503 transiently.
+  // One throwaway call warms it (the route's warm() is fire-and-forget) so the asserts are stable.
+  await hit("POST", "/api/preview", { address: ADDR, fraction: 0.5, destId: "suilend" });
+  r = await hit("POST", "/api/preview", { address: ADDR, fraction: 0.5, destId: "suilend" });
   check("preview valid", r.status === 200, `(${r.status})`);
+  try {
+    const j = JSON.parse(r.text);
+    check("preview returns healthAfter", typeof j.healthAfter === "number", `(${j.healthAfter})`);
+    check("preview echoes destId", j.destId === "suilend");
+    check("preview echoes fraction", j.fraction === 0.5);
+  } catch { check("preview json", false); }
+  // Valid variants: default fraction (full), AlphaLend destination, unknown destId falls back to suilend.
+  for (const [label, body, wantDest] of [
+    ["full-default", { address: ADDR }, "suilend"],
+    ["alphalend", { address: ADDR, destId: "alphalend", fraction: 0.5 }, "alphalend"],
+    ["unknown-dest-defaults", { address: ADDR, destId: "garbage" }, "suilend"],
+  ]) {
+    r = await hit("POST", "/api/preview", body);
+    check(`preview ${label} 200`, r.status === 200, `→ ${r.status}`);
+    try { check(`preview ${label} dest=${wantDest}`, JSON.parse(r.text).destId === wantDest); } catch { check(`preview ${label} json`, false); }
+  }
   const previewBad = [
-    ["missing-address", { debtAtomic: "1", collateralAtomic: "1" }],
-    ["invalid-address", { address: "0xbeef", debtAtomic: "1", collateralAtomic: "1" }],
-    ["xss-address", { address: XSS, debtAtomic: "1", collateralAtomic: "1" }],
-    ["missing-amounts", { address: ADDR }],
-    ["non-numeric-atomic", { address: ADDR, debtAtomic: "abc", collateralAtomic: "1" }],
-    ["negative-atomic", { address: ADDR, debtAtomic: "-5", collateralAtomic: "1000" }],
-    ["zero-atomic", { address: ADDR, debtAtomic: "0", collateralAtomic: "0" }],
-    ["oversize-u64", { address: ADDR, debtAtomic: "99999999999999999999999999", collateralAtomic: "1000" }],
+    ["missing-address", { fraction: 0.5 }],
+    ["invalid-address", { address: "0xbeef", fraction: 0.5 }],
+    ["xss-address", { address: XSS, fraction: 0.5 }],
+    ["fraction-0", { address: ADDR, fraction: 0 }],
+    ["fraction-neg", { address: ADDR, fraction: -0.3 }],
+    ["fraction->1", { address: ADDR, fraction: 1.5 }],
+    ["fraction-NaN", { address: ADDR, fraction: "abc" }],
   ];
   for (const [label, body] of previewBad) {
     r = await hit("POST", "/api/preview", body);

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { makeSuiClient } from "@/lib/clients";
 import { buildRefinancePTB } from "@/lib/refinance";
 import { simulateRefinance } from "@/lib/simulate";
+import { healthFrom } from "@/lib/deleverageEconomics";
 import { getNaviPosition } from "@/lib/position";
 import { withRetry } from "@/lib/retry";
 import { warm } from "@/lib/warm";
@@ -55,10 +56,7 @@ export async function POST(req: Request) {
 
     // F2: projected health AFTER the move = collateral * destination liquidation threshold / debt.
     // A like-for-like move scales collateral and debt together, so this is fraction-independent.
-    const collatUsd = pos.collateral.usd ?? 0;
-    const debtUsd = pos.debt.usd ?? 0;
-    const healthAfter =
-      debtUsd > 0 ? +((collatUsd * DEST_SUI_LIQ_THRESHOLD[dest]) / debtUsd).toFixed(2) : undefined;
+    const healthAfter = healthFrom(pos.collateral.usd, pos.debt.usd, DEST_SUI_LIQ_THRESHOLD[dest]);
 
     let txB64: string | undefined;
     if (sim.ok) txB64 = toBase64(await tx.build({ client: suiClient }));

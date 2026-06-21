@@ -2,6 +2,7 @@
 import { getLendingPositions, getHealthFactor } from "@naviprotocol/lending";
 import { initSuilend, getSuilendPositions } from "./protocols/suilend";
 import { alphalendUsdcBorrowApr, getAlphalendPositions } from "./protocols/alphalend";
+import { healthFrom, pickDest } from "./deleverageEconomics";
 import { NAVI, COINS } from "./config";
 import type { PositionView, Position, LenderPosition, CoinAmount } from "./types";
 
@@ -22,31 +23,11 @@ function toPositions(lps: LenderPosition[], protocol: "alphalend" | "suilend", f
     }));
 }
 
-// Pick the cheapest refinance destination by borrow APR — but only if it actually beats the source
-// (Navi). If neither destination is cheaper than Navi, recommend nothing (F1: no "best rate" / no
-// negative-savings when moving would cost more).
-function pickDest(naviApr?: number, suilendApr?: number, alphalendApr?: number): {
-  recommendedDest?: "suilend" | "alphalend";
-  bestApr?: number;
-  isNaviCheapest?: boolean;
-} {
-  const opts: { id: "suilend" | "alphalend"; apr: number }[] = [];
-  if (suilendApr != null) opts.push({ id: "suilend", apr: suilendApr });
-  if (alphalendApr != null) opts.push({ id: "alphalend", apr: alphalendApr });
-  if (!opts.length) return {};
-  const best = opts.reduce((a, b) => (b.apr < a.apr ? b : a));
-  if (naviApr != null && best.apr >= naviApr) {
-    return { bestApr: naviApr, isNaviCheapest: true }; // already on the cheapest rate
-  }
-  return { recommendedDest: best.id, bestApr: best.apr };
-}
-
 // F6: Navi SUI liquidation threshold (liquidationFactor.threshold ~0.8). Used to back-compute a
 // health factor when the Navi SDK's getHealthFactor blips (it intermittently returns undefined).
 const NAVI_SUI_LIQ_THRESHOLD = 0.8;
-function fallbackHealth(collatUsd?: number, debtUsd?: number): number | undefined {
-  if (collatUsd == null || debtUsd == null || collatUsd <= 0 || debtUsd <= 0) return undefined;
-  return +((collatUsd * NAVI_SUI_LIQ_THRESHOLD) / debtUsd).toFixed(2);
+export function fallbackHealth(collatUsd?: number, debtUsd?: number): number | undefined {
+  return healthFrom(collatUsd, debtUsd, NAVI_SUI_LIQ_THRESHOLD);
 }
 
 // DEV-010 (UNVERIFIED→VERIFIED Day-0): the documented NAVI.CONFIG_URL (/api/navi/config) returns

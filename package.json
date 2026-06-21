@@ -11,7 +11,7 @@
     "dryrun": "tsx scripts/refine-dryrun.ts",
     "execute": "tsx scripts/refine-execute.ts",
     "seed": "tsx scripts/seed-demo.ts",
-    "test:unit": "tsx tests/unit/deleverage.test.ts && tsx tests/unit/position-apr.test.ts",
+    "test:unit": "tsx tests/unit/deleverage.test.ts && tsx tests/unit/refinance-economics.test.ts && tsx tests/unit/position-apr.test.ts",
     "test:api": "node tests/api-matrix.mjs",
     "test:e2e": "playwright test"
   },

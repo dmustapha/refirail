@@ -21,6 +21,32 @@ export interface DeleverageEconomics {
   healthAfter?: number;
 }
 
+// Pick the cheapest refinance destination by borrow APR — but only if it actually beats the source
+// (Navi). If neither destination is cheaper, recommend nothing (no "best rate" / no negative savings).
+// Pure (no SDK imports) so it is unit-testable.
+export function pickDest(naviApr?: number, suilendApr?: number, alphalendApr?: number): {
+  recommendedDest?: "suilend" | "alphalend";
+  bestApr?: number;
+  isNaviCheapest?: boolean;
+} {
+  const opts: { id: "suilend" | "alphalend"; apr: number }[] = [];
+  if (suilendApr != null) opts.push({ id: "suilend", apr: suilendApr });
+  if (alphalendApr != null) opts.push({ id: "alphalend", apr: alphalendApr });
+  if (!opts.length) return {};
+  const best = opts.reduce((a, b) => (b.apr < a.apr ? b : a));
+  if (naviApr != null && best.apr >= naviApr) {
+    return { bestApr: naviApr, isNaviCheapest: true };
+  }
+  return { recommendedDest: best.id, bestApr: best.apr };
+}
+
+// Health factor = collateral USD * liquidation threshold / debt USD. Used for the refinance
+// health-after projection (destination threshold) and the Navi health fallback (0.8).
+export function healthFrom(collatUsd?: number, debtUsd?: number, threshold = 0.8): number | undefined {
+  if (collatUsd == null || debtUsd == null || collatUsd <= 0 || debtUsd <= 0) return undefined;
+  return +((collatUsd * threshold) / debtUsd).toFixed(2);
+}
+
 export function computeDeleverageEconomics(i: DeleverageEconomicsInput): DeleverageEconomics {
   const suiPrice = i.collatHuman > 0 ? i.collatBeforeUsd / i.collatHuman : 0;
   const soldUsd = i.suiToSell * suiPrice;
