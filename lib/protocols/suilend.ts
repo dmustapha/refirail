@@ -5,21 +5,25 @@ import { makeSuiGrpcClient, makeSuiClient } from "../clients";
 import { makeDeepBook } from "./deepbook";
 import { SUILEND, COINS } from "../config";
 import { withRetry } from "../retry";
+import { ttlMemo } from "../cache";
 import type { LenderPosition } from "../types";
 
-export async function initSuilend(): Promise<SuilendClient> {
-  // DEV-019: gRPC init intermittently throws "RpcError: fetch failed". Retry the SHARED path so
-  // both /api/preview and the scripts survive a transient blip. A fresh grpc client per attempt
-  // avoids reusing a half-broken transport.
-  return withRetry(() => {
-    const grpc = makeSuiGrpcClient();
-    // 3.0.x: 4th arg is a SuiGrpcClient, NOT SuiClient.
-    return SuilendClient.initialize(
-      SUILEND.LENDING_MARKET_ID,
-      SUILEND.LENDING_MARKET_TYPE,
-      grpc as never,
-    );
-  });
+// Memoized: the gRPC init is ~12s cold, so reuse the initialized client across requests (warm() pre-warms
+// it on the first request, and the cross-lender scan runs on every /api/position). Reset on INIT failure
+// so a transient "RpcError: fetch failed" blip is never cached. DEV-019: fresh grpc client per attempt.
+let _suilend: Promise<SuilendClient> | null = null;
+export function initSuilend(): Promise<SuilendClient> {
+  if (!_suilend) {
+    _suilend = withRetry(() => {
+      const grpc = makeSuiGrpcClient();
+      // 3.0.x: 4th arg is a SuiGrpcClient, NOT SuiClient.
+      return SuilendClient.initialize(SUILEND.LENDING_MARKET_ID, SUILEND.LENDING_MARKET_TYPE, grpc as never);
+    }).catch((e) => {
+      _suilend = null; // don't cache a failed init
+      throw e;
+    });
+  }
+  return _suilend;
 }
 
 // Create a fresh obligation, deposit the (already-held) SUI coin, refresh BOTH reserve prices,
@@ -114,7 +118,8 @@ const wad = (d: unknown): number => {
 };
 const ctName = (ct: unknown): string => String((ct as { name?: string })?.name ?? ct ?? "");
 
-export async function getSuilendPositions(address: string): Promise<LenderPosition[]> {
+// Returns [] when the user has no Suilend obligation, null when the READ itself failed (F7).
+export async function getSuilendPositions(address: string): Promise<LenderPosition[] | null> {
   try {
     const grpc = makeSuiGrpcClient();
     const caps = await withRetry(() =>
@@ -124,7 +129,7 @@ export async function getSuilendPositions(address: string): Promise<LenderPositi
 
     const client = await initSuilend();
     let suiPrice = 0.71; // fallback; convert the on-chain USD marketValue into a SUI amount for display
-    try { suiPrice = await makeDeepBook(makeSuiClient(), address).midPrice("SUI_USDC"); } catch { /* fallback */ }
+    try { suiPrice = await ttlMemo("price:sui", 20_000, () => makeDeepBook(makeSuiClient(), address).midPrice("SUI_USDC")); } catch { /* fallback */ }
 
     const out: LenderPosition[] = [];
     for (const cap of caps as Array<{ obligationId?: { bytes?: string } | string }>) {
@@ -154,6 +159,6 @@ export async function getSuilendPositions(address: string): Promise<LenderPositi
     }
     return out;
   } catch {
-    return [];
+    return null; // read failed (F7)
   }
 }

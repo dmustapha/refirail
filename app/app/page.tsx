@@ -137,6 +137,7 @@ export default function Workspace() {
         {!posLoading && !posError && pos?.hasPosition && (
           <>
             <PositionPicker positions={positions} selectedId={selectedPos?.id ?? ""} onSelect={setSelectedPosId} />
+            {pos.positionsNote && <p className="muted-note" style={{ marginTop: 8 }}>{pos.positionsNote}</p>}
             {actionable ? (
             <>
             <div className="modes reveal" role="group" aria-label="Operation">

@@ -3,6 +3,7 @@ import { getLendingPositions, getHealthFactor } from "@naviprotocol/lending";
 import { initSuilend, getSuilendPositions } from "./protocols/suilend";
 import { alphalendUsdcBorrowApr, getAlphalendPositions } from "./protocols/alphalend";
 import { healthFrom, pickDest } from "./deleverageEconomics";
+import { ttlMemo } from "./cache";
 import { NAVI, COINS } from "./config";
 import type { PositionView, Position, LenderPosition, CoinAmount } from "./types";
 
@@ -124,18 +125,22 @@ export async function getNaviPosition(
   return { hasPosition: true, collateral, debt, healthFactor };
 }
 
-export async function getPositionView(address: string): Promise<PositionView> {
-  // Fire every read in parallel: the three APRs, the Navi raw position + health, and the cross-lender
-  // position scans (AlphaLend + Suilend). The non-Navi scans are read-only (cheap-exit when absent).
+// `lite` skips the cross-lender position scan (AlphaLend GraphQL + Suilend gRPC obligations) — the
+// landing only needs the primary Navi position + APRs, so it shouldn't pay for the picker's reads.
+export async function getPositionView(address: string, lite = false): Promise<PositionView> {
+  // Fire every read in parallel: the three APRs, the Navi raw position + health, and (unless lite) the
+  // cross-lender position scans (AlphaLend + Suilend). The non-Navi scans are read-only.
   const [naviApr, suiApr, alphaApr, naviRaw, healthRaw, alphaPositions, suilendPositions] =
     await Promise.all([
-      naviUsdcBorrowApr(),
-      suilendUsdcBorrowApr(),
-      alphalendUsdcBorrowApr(),
+      // F9: APRs are market-wide + slow-moving → cache 20s so repeated loads (landing + app) don't refetch.
+      ttlMemo("apr:navi", 20_000, naviUsdcBorrowApr),
+      ttlMemo("apr:suilend", 20_000, suilendUsdcBorrowApr),
+      ttlMemo("apr:alphalend", 20_000, alphalendUsdcBorrowApr),
+      // Position reads stay LIVE (never cached) — they are the user's on-chain state.
       getLendingPositions(address).catch(() => [] as any[]),
       getHealthFactor(address).catch(() => undefined),
-      getAlphalendPositions(address),
-      getSuilendPositions(address),
+      lite ? Promise.resolve([] as LenderPosition[]) : getAlphalendPositions(address),
+      lite ? Promise.resolve([] as LenderPosition[]) : getSuilendPositions(address),
     ]);
 
   // Route to the cheapest destination only if it beats Navi; else Navi is already cheapest (F1).
@@ -152,10 +157,18 @@ export async function getPositionView(address: string): Promise<PositionView> {
     if (b && legToken(b).toLowerCase().includes("usdc") && Number(b.amount) > 0) borrow = b;
   }
 
+  // F7: distinguish a failed read (null) from a genuinely empty one ([]) so we can say so honestly.
+  const readErrors: string[] = [];
+  if (alphaPositions === null) readErrors.push("AlphaLend");
+  if (suilendPositions === null) readErrors.push("Suilend");
+  const positionsNote = readErrors.length
+    ? `Couldn't read ${readErrors.join(" and ")} right now. Other lenders are shown.`
+    : undefined;
+
   // Non-Navi positions are always read-only (no source-half in the engine yet).
   const nonNavi = [
-    ...toPositions(alphaPositions, "alphalend", alphaApr),
-    ...toPositions(suilendPositions, "suilend", suiApr),
+    ...toPositions(alphaPositions ?? [], "alphalend", alphaApr),
+    ...toPositions(suilendPositions ?? [], "suilend", suiApr),
   ];
 
   // The refinance/deleverage acts on a USDC borrow against SUI collateral on Navi. No such position
@@ -163,7 +176,7 @@ export async function getPositionView(address: string): Promise<PositionView> {
   if (!borrow || !supply) {
     return { hasPosition: false, address, naviAprPct: naviApr, suilendAprPct: suiApr,
       alphalendAprPct: alphaApr, recommendedDest, aprDeltaPct, isNaviCheapest,
-      positions: nonNavi.length ? nonNavi : undefined,
+      positions: nonNavi.length ? nonNavi : undefined, positionsNote,
       note: "No Navi SUI/USDC borrow position found. Run scripts/seed-demo.ts to open the demo position." };
   }
 
@@ -192,6 +205,7 @@ export async function getPositionView(address: string): Promise<PositionView> {
     isNaviCheapest,
     healthFactor,
     positions,
+    positionsNote,
     selectedPositionId: naviPosition.id,
   };
 }

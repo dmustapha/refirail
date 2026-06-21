@@ -8,7 +8,14 @@ import type { Transaction, TransactionResult } from "@mysten/sui/transactions";
 import { AlphalendClient } from "@alphafi/alphalend-sdk";
 import { COINS } from "../config";
 import { withRetry } from "../retry";
+import { ttlMemo } from "../cache";
 import type { LenderPosition } from "../types";
+
+// F9: AlphaLend market list is market-wide + slow-moving → cache 30s (it's hit by the APR read AND
+// the position reader on each /api/position).
+function cachedMarkets() {
+  return ttlMemo("alphalend:markets", 30_000, async () => (await initAlphalend()).getAllMarkets());
+}
 
 let _client: AlphalendClient | null = null;
 let _marketIds: { sui: string; usdc: string } | null = null;
@@ -84,8 +91,7 @@ export async function appendAlphalendDepositBorrow(
 // MarketData.borrowApr.interestApr is a ratio (0.065 = 6.5%); normalize to a percentage.
 export async function alphalendUsdcBorrowApr(): Promise<number | undefined> {
   try {
-    const client = await initAlphalend();
-    const markets = await client.getAllMarkets();
+    const markets = await cachedMarkets();
     const usdc = markets?.find((m) => m.coinType === COINS.USDC);
     const raw = usdc?.borrowApr?.interestApr;
     if (raw == null) return undefined;
@@ -102,13 +108,15 @@ export async function alphalendUsdcBorrowApr(): Promise<number | undefined> {
 // already human units); map marketId -> coinType/price via getAllMarkets. Health = safe-limit / debt.
 const num = (d: unknown): number => Number((d as { toString(): string })?.toString?.() ?? d ?? 0);
 
-export async function getAlphalendPositions(address: string): Promise<LenderPosition[]> {
+// Returns [] when the user has no AlphaLend position, null when the READ itself failed (so the UI can
+// say "couldn't read AlphaLend" instead of silently implying no position). F7.
+export async function getAlphalendPositions(address: string): Promise<LenderPosition[] | null> {
   try {
     const client = await initAlphalend();
     const portfolios = await withRetry(() => client.getUserPortfolio(address));
     if (!portfolios || portfolios.length === 0) return [];
-    const markets = await withRetry(() => client.getAllMarkets());
-    if (!markets) return [];
+    const markets = await cachedMarkets();
+    if (!markets) return null; // portfolios read but markets failed -> a read failure, not "no position"
     const marketById = new Map<number, { coinType: string; price: number }>();
     for (const m of markets) marketById.set(parseInt(m.marketId), { coinType: m.coinType, price: num(m.price) });
 
@@ -144,6 +152,6 @@ export async function getAlphalendPositions(address: string): Promise<LenderPosi
     }
     return out;
   } catch {
-    return [];
+    return null; // read failed (F7)
   }
 }

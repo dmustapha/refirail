@@ -44,6 +44,7 @@ export interface PositionView {
   // Cross-lender picker (additive; primary fields above stay the actionable Navi position for back-compat).
   positions?: Position[];
   selectedPositionId?: string; // defaults to the primary Navi position id
+  positionsNote?: string;      // F7: set when a lender read failed (vs returned empty)
 }
 
 export interface BalanceChange {

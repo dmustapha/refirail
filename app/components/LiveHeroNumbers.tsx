@@ -24,7 +24,7 @@ export function LiveHeroNumbers({ which }: { which: "health" | "apr" }) {
     let alive = true;
     (async () => {
       try {
-        const pos: PositionView = await fetch(`/api/position?address=${DEMO}`).then((r) => r.json());
+        const pos: PositionView = await fetch(`/api/position?address=${DEMO}&lite=1`).then((r) => r.json());
         if (!alive || !pos?.hasPosition) return;
 
         // APR: Navi (current) -> cheapest destination. Both live from /api/position.
