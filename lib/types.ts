@@ -37,7 +37,8 @@ export interface PositionView {
   suilendAprPct?: number;
   alphalendAprPct?: number;
   aprDeltaPct?: number;            // navi - cheapest destination APR (the "you save" against the routed dest)
-  recommendedDest?: "suilend" | "alphalend"; // cheapest destination by borrow APR
+  recommendedDest?: "suilend" | "alphalend"; // cheapest destination by borrow APR (undefined if Navi is cheapest)
+  isNaviCheapest?: boolean;        // true when no destination beats the current Navi rate (F1)
   healthFactor?: number;
   note?: string; // e.g. guidance when no position exists
   // Cross-lender picker (additive; primary fields above stay the actionable Navi position for back-compat).

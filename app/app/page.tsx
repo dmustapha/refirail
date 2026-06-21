@@ -71,13 +71,8 @@ export default function Workspace() {
     if (!pos?.hasPosition || !pos.collateral || !pos.debt) return;
     setLoading(true); setPreview(null); setDigest(null);
     try {
-      const body = {
-        address,
-        debtAtomic: String(Math.round(pos.debt.amountHuman * 1e6)),
-        collateralAtomic: String(Math.round(pos.collateral.amountHuman * 1e9)),
-        destId,
-        fraction,
-      };
+      // F3: server reads the live position; we only send the choice (venue + how much).
+      const body = { address, destId, fraction };
       const r = await fetch("/api/preview", {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
       });
@@ -191,6 +186,7 @@ export default function Workspace() {
                           naviAprPct={pos.naviAprPct}
                           suilendAprPct={pos.suilendAprPct}
                           alphalendAprPct={pos.alphalendAprPct}
+                          isNaviCheapest={pos.isNaviCheapest}
                           disabled={loading}
                         />
 

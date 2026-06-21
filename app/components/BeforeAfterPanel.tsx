@@ -18,9 +18,10 @@ export function BeforeAfterPanel({
   debtUsd?: number;
   destLabel?: string;
 }) {
-  // [CRITIQUE E-3] Annualized savings on this position, computed client-side from /api/position.
+  // Annualized savings on this position, computed client-side from /api/position. F1: only when the
+  // move actually saves (positive delta) — never render a negative "saving" for a pricier destination.
   const annualSavingsUsd =
-    aprDeltaPct != null && debtUsd != null ? (aprDeltaPct / 100) * debtUsd : undefined;
+    aprDeltaPct != null && aprDeltaPct > 0 && debtUsd != null ? (aprDeltaPct / 100) * debtUsd : undefined;
   return (
     <div className="card ba-grid">
       <div className="ba-col">
@@ -31,7 +32,7 @@ export function BeforeAfterPanel({
       <div className="ba-col">
         <h4>After · {destLabel}</h4>
         <div className="line"><span>APR</span><b className="good">{afterApr?.toFixed(1)}%</b></div>
-        <div className="line"><span>Health</span><b>{afterHealth != null ? afterHealth.toFixed(2) : "n/a"}</b></div>
+        <div className="line"><span>Health<span className="proj">projected</span></span><b>{afterHealth != null ? afterHealth.toFixed(2) : "n/a"}</b></div>
       </div>
 
       <div className="refi-rail" aria-hidden="true">

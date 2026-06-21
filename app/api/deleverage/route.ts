@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { makeSuiClient } from "@/lib/clients";
 import { makeDeepBook } from "@/lib/protocols/deepbook";
-import { getPositionView } from "@/lib/position";
+import { getNaviPosition } from "@/lib/position";
 import { sizeDeleverage } from "@/lib/deleverageQuote";
 import { buildDeleveragePTB } from "@/lib/deleverage";
 import { simulateRefinance } from "@/lib/simulate";
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const suiClient = makeSuiClient();
     const db = makeDeepBook(suiClient, address);
 
-    const pos = await withRetry(() => getPositionView(address));
+    const pos = await withRetry(() => getNaviPosition(address));
     if (!pos.hasPosition || !pos.debt || !pos.collateral) {
       return NextResponse.json({ ok: false, abortReason: "no Navi SUI/USDC position" }, { status: 200 });
     }

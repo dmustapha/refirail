@@ -16,6 +16,7 @@ export function DestinationPicker({
   naviAprPct,
   suilendAprPct,
   alphalendAprPct,
+  isNaviCheapest,
   disabled,
 }: {
   selected: DestId;
@@ -24,18 +25,22 @@ export function DestinationPicker({
   naviAprPct?: number;
   suilendAprPct?: number;
   alphalendAprPct?: number;
+  isNaviCheapest?: boolean;
   disabled?: boolean;
 }) {
   const apr: Record<DestId, number | undefined> = {
     suilend: suilendAprPct,
     alphalend: alphalendAprPct,
   };
-  // Cheapest destination among the venues that actually quoted an APR.
-  const cheapest = cheapestDest(suilendAprPct, alphalendAprPct) ?? recommended;
+  // Cheapest destination among the venues that quoted an APR — but only if one actually beats Navi.
+  // When Navi is already cheapest (F1), no destination is "best", so no venue gets the tag.
+  const cheapest = isNaviCheapest ? null : (cheapestDest(suilendAprPct, alphalendAprPct) ?? recommended);
 
   return (
     <div className="dest-pick">
-      <p className="dp-eyebrow">Destination · routed to the best rate</p>
+      <p className="dp-eyebrow">
+        {isNaviCheapest ? "Destination · Navi already has the best rate" : "Destination · routed to the best rate"}
+      </p>
       <div className="dp-strip" role="group" aria-label="Choose refinance destination">
         <div className="venue venue-src" aria-hidden="true">
           <span className="vn">Navi</span>
@@ -69,7 +74,9 @@ export function DestinationPicker({
         })}
       </div>
       <p className="dp-hint">
-        RefiRail scans every venue and routes to the cheapest borrow APR. You can also pick manually.
+        {isNaviCheapest
+          ? "Navi currently offers the lowest borrow rate. Moving would raise your APR, so we recommend staying put."
+          : "RefiRail scans every venue and routes to the cheapest borrow APR. You can also pick manually."}
       </p>
     </div>
   );

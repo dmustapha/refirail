@@ -3,7 +3,7 @@ import { getLendingPositions, getHealthFactor } from "@naviprotocol/lending";
 import { initSuilend, getSuilendPositions } from "./protocols/suilend";
 import { alphalendUsdcBorrowApr, getAlphalendPositions } from "./protocols/alphalend";
 import { NAVI, COINS } from "./config";
-import type { PositionView, Position, LenderPosition } from "./types";
+import type { PositionView, Position, LenderPosition, CoinAmount } from "./types";
 
 // Map a per-lender read into picker positions (non-Navi positions are read-only/non-actionable).
 function toPositions(lps: LenderPosition[], protocol: "alphalend" | "suilend", fallbackApr?: number): Position[] {
@@ -14,23 +14,39 @@ function toPositions(lps: LenderPosition[], protocol: "alphalend" | "suilend", f
       protocol,
       collateral: lp.collateral,
       debt: lp.debt,
-      borrowAprPct: lp.borrowAprPct ?? fallbackApr,
+      // F5: show the venue's market USDC borrow APR everywhere (consistent with DestinationPicker),
+      // not the SDK's position-aggregated rate, so one number per venue shows across the UI.
+      borrowAprPct: fallbackApr ?? lp.borrowAprPct,
       healthFactor: lp.healthFactor,
       actionable: false,
     }));
 }
 
-// Pick the cheapest refinance destination by borrow APR (Suilend vs AlphaLend).
-function pickDest(suilendApr?: number, alphalendApr?: number): {
+// Pick the cheapest refinance destination by borrow APR — but only if it actually beats the source
+// (Navi). If neither destination is cheaper than Navi, recommend nothing (F1: no "best rate" / no
+// negative-savings when moving would cost more).
+function pickDest(naviApr?: number, suilendApr?: number, alphalendApr?: number): {
   recommendedDest?: "suilend" | "alphalend";
   bestApr?: number;
+  isNaviCheapest?: boolean;
 } {
   const opts: { id: "suilend" | "alphalend"; apr: number }[] = [];
   if (suilendApr != null) opts.push({ id: "suilend", apr: suilendApr });
   if (alphalendApr != null) opts.push({ id: "alphalend", apr: alphalendApr });
   if (!opts.length) return {};
   const best = opts.reduce((a, b) => (b.apr < a.apr ? b : a));
+  if (naviApr != null && best.apr >= naviApr) {
+    return { bestApr: naviApr, isNaviCheapest: true }; // already on the cheapest rate
+  }
   return { recommendedDest: best.id, bestApr: best.apr };
+}
+
+// F6: Navi SUI liquidation threshold (liquidationFactor.threshold ~0.8). Used to back-compute a
+// health factor when the Navi SDK's getHealthFactor blips (it intermittently returns undefined).
+const NAVI_SUI_LIQ_THRESHOLD = 0.8;
+function fallbackHealth(collatUsd?: number, debtUsd?: number): number | undefined {
+  if (collatUsd == null || debtUsd == null || collatUsd <= 0 || debtUsd <= 0) return undefined;
+  return +((collatUsd * NAVI_SUI_LIQ_THRESHOLD) / debtUsd).toFixed(2);
 }
 
 // DEV-010 (UNVERIFIED→VERIFIED Day-0): the documented NAVI.CONFIG_URL (/api/navi/config) returns
@@ -103,6 +119,30 @@ function legAmount(leg: any): number {
   return Number.isFinite(dec) && a > 1e6 && dec >= 6 ? a / 10 ** dec : a;
 }
 
+// Lightweight Navi-only read for the operation hot paths (preview / deleverage). It skips the full
+// cross-lender scan + the three APR fetches that getPositionView does for display — none of which are
+// needed to build or size a PTB — roughly halving preview latency.
+export async function getNaviPosition(
+  address: string,
+): Promise<{ hasPosition: boolean; collateral?: CoinAmount; debt?: CoinAmount; healthFactor?: number }> {
+  const [naviRaw, healthRaw] = await Promise.all([
+    getLendingPositions(address).catch(() => [] as any[]),
+    getHealthFactor(address).catch(() => undefined),
+  ]);
+  let supply: any, borrow: any;
+  for (const p of naviRaw) {
+    const s = p?.["navi-lending-supply"];
+    const b = p?.["navi-lending-borrow"];
+    if (s && legToken(s).includes("sui::SUI") && Number(s.amount) > 0) supply = s;
+    if (b && legToken(b).toLowerCase().includes("usdc") && Number(b.amount) > 0) borrow = b;
+  }
+  if (!supply || !borrow) return { hasPosition: false };
+  const collateral = { type: COINS.SUI, amountHuman: legAmount(supply), usd: +Number(supply.valueUSD ?? 0).toFixed(2) };
+  const debt = { type: COINS.USDC, amountHuman: legAmount(borrow), usd: +Number(borrow.valueUSD ?? 0).toFixed(2) };
+  const healthFactor = healthRaw != null ? +Number(healthRaw).toFixed(2) : fallbackHealth(collateral.usd, debt.usd);
+  return { hasPosition: true, collateral, debt, healthFactor };
+}
+
 export async function getPositionView(address: string): Promise<PositionView> {
   // Fire every read in parallel: the three APRs, the Navi raw position + health, and the cross-lender
   // position scans (AlphaLend + Suilend). The non-Navi scans are read-only (cheap-exit when absent).
@@ -117,10 +157,10 @@ export async function getPositionView(address: string): Promise<PositionView> {
       getSuilendPositions(address),
     ]);
 
-  // Route against the cheapest destination; the "you save" delta reflects that route.
-  const { recommendedDest, bestApr } = pickDest(suiApr, alphaApr);
+  // Route to the cheapest destination only if it beats Navi; else Navi is already cheapest (F1).
+  const { recommendedDest, bestApr, isNaviCheapest } = pickDest(naviApr, suiApr, alphaApr);
   const aprDeltaPct =
-    naviApr != null && bestApr != null ? +(naviApr - bestApr).toFixed(2) : undefined;
+    !isNaviCheapest && naviApr != null && bestApr != null ? +(naviApr - bestApr).toFixed(2) : undefined;
 
   // Collect the SUI supply (collateral) + native-USDC borrow (debt) across returned Navi positions.
   let supply: any, borrow: any;
@@ -141,14 +181,15 @@ export async function getPositionView(address: string): Promise<PositionView> {
   // -> honest empty state (but still surface any read-only cross-lender positions for context).
   if (!borrow || !supply) {
     return { hasPosition: false, address, naviAprPct: naviApr, suilendAprPct: suiApr,
-      alphalendAprPct: alphaApr, recommendedDest, aprDeltaPct,
+      alphalendAprPct: alphaApr, recommendedDest, aprDeltaPct, isNaviCheapest,
       positions: nonNavi.length ? nonNavi : undefined,
       note: "No Navi SUI/USDC borrow position found. Run scripts/seed-demo.ts to open the demo position." };
   }
 
-  const healthFactor = healthRaw != null ? +Number(healthRaw).toFixed(2) : undefined;
   const collateral = { type: COINS.SUI, amountHuman: legAmount(supply), usd: +Number(supply.valueUSD ?? 0).toFixed(2) };
   const debt = { type: COINS.USDC, amountHuman: legAmount(borrow), usd: +Number(borrow.valueUSD ?? 0).toFixed(2) };
+  // F6: fall back to a computed health (collat*threshold/debt) when the Navi SDK health read blips.
+  const healthFactor = healthRaw != null ? +Number(healthRaw).toFixed(2) : fallbackHealth(collateral.usd, debt.usd);
 
   // The Navi position is the single actionable source; non-Navi positions follow as read-only.
   const naviPosition: Position = {
@@ -167,6 +208,7 @@ export async function getPositionView(address: string): Promise<PositionView> {
     alphalendAprPct: alphaApr,
     recommendedDest,
     aprDeltaPct,
+    isNaviCheapest,
     healthFactor,
     positions,
     selectedPositionId: naviPosition.id,

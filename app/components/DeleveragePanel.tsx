@@ -161,6 +161,12 @@ export function DeleveragePanel({
           </div>
         </div>
 
+        {active && (
+          <p className="proj-note">
+            Health and balances are projected from a live dry-run. The transaction reverts on-chain if the real outcome would differ.
+          </p>
+        )}
+
         <div className="exec-row">
           <ActionButton
             txB64={res?.txB64}
