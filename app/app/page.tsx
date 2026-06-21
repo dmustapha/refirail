@@ -132,7 +132,10 @@ export default function Workspace() {
             <Link className="wm" href="/"><BrandMark size={24} />RefiRail</Link>
             <span className="net"><span className="live" />Sui mainnet</span>
           </div>
-          <div className="connect"><ConnectButton /></div>
+          <div className={`connect${connected ? " connected" : ""}`}>
+            {connected && <span className="conn-dot" aria-hidden="true" />}
+            <ConnectButton />
+          </div>
         </header>
 
         <div className="app-title reveal">

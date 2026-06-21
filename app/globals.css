@@ -338,8 +338,13 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
 @media (hover: hover) { .txlink:hover:not(:active) { color: var(--mint); transform: translateX(2px); } }
 
 /* dapp-kit ConnectButton override */
-.connect button { font-family: var(--sans) !important; font-weight: 600 !important; font-size: 14px !important; background: transparent !important; color: var(--aqua) !important; border: 1px solid var(--aqua-line) !important; border-radius: 100px !important; padding: 11px 22px !important; transition: background-color 0.15s var(--ease) !important; }
+.connect { display: inline-flex; align-items: center; gap: 9px; }
+.connect button { font-family: var(--sans) !important; font-weight: 600 !important; font-size: 14px !important; background: transparent !important; color: var(--aqua) !important; border: 1px solid var(--aqua-line) !important; border-radius: 100px !important; padding: 11px 22px !important; transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease) !important; }
 @media (hover: hover) { .connect button:hover:not(:disabled) { background: var(--aqua-soft) !important; } }
+/* Connected state: clearly distinct from the "Connect" prompt — mint (the app's live/active hue) + a glowing dot. */
+.connect.connected button { color: var(--mint) !important; border-color: rgba(70, 229, 181, 0.55) !important; background: var(--mint-soft) !important; }
+@media (hover: hover) { .connect.connected button:hover:not(:disabled) { background: rgba(70, 229, 181, 0.18) !important; } }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 9px var(--mint); flex: 0 0 auto; }
 
 /* ---------- FOOTER ---------- */
 .foot { padding: 64px 0 56px; border-top: 1px solid var(--hair); margin-top: 72px; }
