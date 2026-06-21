@@ -253,7 +253,7 @@ export default function Workspace() {
                         )}
                         {digest && (
                           <div className="card success">
-                            <p>Refinanced. Your loan now lives on {destLabel} at the lower rate.</p>
+                            <p>Refinanced. Your loan now lives on {destLabel}{destDelta != null && destDelta > 0 ? " at the lower rate" : ""}.</p>
                             <TxLink digest={digest} />
                           </div>
                         )}

@@ -69,6 +69,17 @@ export async function POST(req: Request) {
     const { collatAfterUsd, debtAfterUsd, healthAfter } = econ;
     const surplusUsdc = +Math.max(0, size.quotedUsdcOut - size.repayHuman).toFixed(4);
 
+    // A paydown must never lower health. On a small position a tiny slice can fall below DeepBook's
+    // two-hop swap floor: the floor forces selling more SUI than the slice needs, so collateral drops
+    // more than debt and health would actually fall (the excess returns to the wallet as surplus).
+    // Reject that honestly instead of rendering a "Reduce my risk" that raises risk.
+    if (healthBefore != null && healthAfter != null && healthAfter < healthBefore) {
+      return NextResponse.json(
+        { ok: false, abortReason: "This slice is too small to lift your health on a position this size. Try a larger paydown." },
+        { status: 200 },
+      );
+    }
+
     let txB64: string | undefined;
     if (sim.ok) txB64 = toBase64(await tx.build({ client: suiClient }));
 

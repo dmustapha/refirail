@@ -26,6 +26,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, abortReason: "invalid json" }, { status: 400 });
   }
   const { address, destId, fraction } = body ?? {};
+  // Reject an unknown destId as a clean 400 instead of silently coercing it to suilend.
+  if (destId != null && destId !== "suilend" && destId !== "alphalend") {
+    return NextResponse.json({ ok: false, abortReason: "destId must be 'suilend' or 'alphalend'" }, { status: 400 });
+  }
   const dest: "suilend" | "alphalend" = destId === "alphalend" ? "alphalend" : "suilend";
   // Partial refinance fraction (0, 1]; default full. Reject out-of-range as a clean 400.
   const frac = fraction == null ? 1.0 : Number(fraction);
