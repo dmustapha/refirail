@@ -16,7 +16,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@alphafi/alphalend-sdk": "^3.0.1",
+    "@alphafi/alphalend-sdk": "3.0.1",
     "@mysten/dapp-kit": "^1.1.1",
     "@mysten/deepbook-v3": "latest",
     "@mysten/sui": "^2.18.0",
