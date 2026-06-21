@@ -14,8 +14,13 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, abortReason: "invalid json" }, { status: 400 });
   }
-  const { address, debtAtomic, collateralAtomic, bufferBps, destId } = body ?? {};
+  const { address, debtAtomic, collateralAtomic, bufferBps, destId, fraction } = body ?? {};
   const dest: "suilend" | "alphalend" = destId === "alphalend" ? "alphalend" : "suilend";
+  // Partial refinance fraction (0, 1]; default full. Reject out-of-range as a clean 400.
+  const frac = fraction == null ? 1.0 : Number(fraction);
+  if (!Number.isFinite(frac) || frac <= 0 || frac > 1.0) {
+    return NextResponse.json({ ok: false, abortReason: "fraction must be in (0, 1]" }, { status: 400 });
+  }
   if (!address || !debtAtomic || !collateralAtomic) {
     return NextResponse.json({ ok: false, abortReason: "missing params" }, { status: 400 });
   }
@@ -50,6 +55,7 @@ export async function POST(req: Request) {
       collateralAtomic: collateral,
       bufferBps: buffer,
       destId: dest,
+      fraction: frac,
     });
     const sim = await simulateRefinance(suiClient, tx, address);
     let txB64: string | undefined;

@@ -22,11 +22,18 @@ export interface RefinanceParams {
   collateralAtomic: bigint;  // SUI collateral to move (atomic)
   bufferBps?: number;        // flash over-borrow buffer; default 30 bps
   destId?: DestId;           // destination money market; default "suilend"
+  fraction?: number;         // portion of the position to move, (0, 1]; default 1.0 (full)
 }
 
 // Returns the composed, sender-set PTB. Caller dry-runs it (simulate) before signing.
 export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction> {
-  const { flashAtomic, flashHuman } = computeFlashAmounts(p.debtAtomic, p.bufferBps ?? 30);
+  // Partial refinance: move only `fraction` of the position. Scaling debt AND collateral by the
+  // same fraction keeps the destination position at the same LTV (a like-for-like move). The flash
+  // amount and destination borrow both derive from debtToRepay, so the exact-repay invariant holds.
+  const fraction = p.fraction ?? 1.0;
+  const debtToRepay = fraction >= 1 ? p.debtAtomic : BigInt(Math.floor(Number(p.debtAtomic) * fraction));
+  const collateralToMove = fraction >= 1 ? p.collateralAtomic : BigInt(Math.floor(Number(p.collateralAtomic) * fraction));
+  const { flashAtomic, flashHuman } = computeFlashAmounts(debtToRepay, p.bufferBps ?? 30);
 
   const tx = new Transaction();
   tx.setSender(p.sender);
@@ -45,8 +52,8 @@ export async function buildRefinancePTB(p: RefinanceParams): Promise<Transaction
   // 2. repay the Navi USDC debt fully with the flash proceeds (excess refunds to sender)
   await appendNaviRepayUSDC(tx, flashUsdc, flashAtomic);
 
-  // 3. withdraw the freed SUI collateral from Navi
-  const suiCoin = await appendNaviWithdrawSUI(tx, p.collateralAtomic);
+  // 3. withdraw the freed SUI collateral from Navi (scaled by fraction for a partial move)
+  const suiCoin = await appendNaviWithdrawSUI(tx, collateralToMove);
 
   // 4-7. DESTINATION half (dispatch by id): create position -> deposit SUI -> oracle refresh
   //      -> borrow USDC (== flash amount). Both adapters return { borrowedCoin, cap }.

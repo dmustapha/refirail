@@ -1,9 +1,12 @@
 // File: lib/protocols/suilend.ts
 import type { Transaction, TransactionResult } from "@mysten/sui/transactions";
 import { SuilendClient } from "@suilend/sdk";
-import { makeSuiGrpcClient } from "../clients";
-import { SUILEND } from "../config";
+import { parseObligation } from "@suilend/sdk/parsers/obligation";
+import { parseReserve } from "@suilend/sdk/parsers/reserve";
+import { makeSuiGrpcClient, makeSuiClient } from "../clients";
+import { SUILEND, COINS } from "../config";
 import { withRetry } from "../retry";
+import type { LenderPosition } from "../types";
 
 export async function initSuilend(): Promise<SuilendClient> {
   // DEV-019: gRPC init intermittently throws "RpcError: fetch failed". Retry the SHARED path so
@@ -99,4 +102,74 @@ export async function appendSuilendRepayWithdraw(
   )) as unknown as TransactionResult;
 
   return { withdrawnCoin };
+}
+
+// Read the user's Suilend obligations (for the cross-lender position view). Read-only.
+// Enumerate owner caps (cheap; empty for wallets with no Suilend obligations -> early return). Only
+// when caps exist do we pay for client init + the parsed reserve map. Each leg is try/caught so any
+// parse surprise degrades to "no Suilend positions" rather than breaking the page.
+const sNum = (d: unknown): number => Number((d as { toString(): string })?.toString?.() ?? d ?? 0);
+const sCoinType = (r: unknown): string =>
+  String((r as { name?: string })?.name ?? r ?? "");
+
+export async function getSuilendPositions(address: string): Promise<LenderPosition[]> {
+  try {
+    const grpc = makeSuiGrpcClient();
+    const caps = await withRetry(() =>
+      SuilendClient.getObligationOwnerCaps(address, [SUILEND.LENDING_MARKET_TYPE], grpc as never),
+    );
+    if (!caps || caps.length === 0) return []; // demo wallet + most wallets exit here (one cheap call)
+
+    const client = await initSuilend();
+    const reserves: unknown[] = (client as { lendingMarket?: { reserves?: unknown[] } }).lendingMarket?.reserves ?? [];
+    const jsonRpc = makeSuiClient();
+
+    // Coin metadata for each reserve (needed by parseReserve). Best-effort per coin.
+    const coinMetadataMap: Record<string, unknown> = {};
+    for (const r of reserves) {
+      const ct = sCoinType((r as { coinType?: unknown })?.coinType);
+      if (!ct || coinMetadataMap[ct]) continue;
+      try {
+        const md = await jsonRpc.getCoinMetadata({ coinType: ct });
+        if (md) coinMetadataMap[ct] = md;
+      } catch { /* metadata is non-fatal */ }
+    }
+    const parsedReserveMap: Record<string, unknown> = {};
+    for (const r of reserves) {
+      const ct = sCoinType((r as { coinType?: unknown })?.coinType);
+      if (!ct) continue;
+      try { parsedReserveMap[ct] = parseReserve(r as never, coinMetadataMap as never); } catch { /* skip bad reserve */ }
+    }
+
+    const out: LenderPosition[] = [];
+    for (const cap of caps as Array<{ obligationId?: unknown }>) {
+      try {
+        const obligationId = String((cap.obligationId as { bytes?: string })?.bytes ?? cap.obligationId ?? "");
+        if (!obligationId) continue;
+        const obligation = await client.getObligation(obligationId);
+        const parsed = parseObligation(obligation as never, parsedReserveMap as never) as {
+          id?: string;
+          deposits?: Array<{ coinType: string; depositedAmount?: unknown; depositedAmountUsd?: unknown }>;
+          borrows?: Array<{ coinType: string; borrowedAmount?: unknown; borrowedAmountUsd?: unknown }>;
+          borrowLimitUsd?: unknown; weightedBorrowsUsd?: unknown;
+        };
+        const suiDep = (parsed.deposits ?? []).find((d) => String(d.coinType).includes("sui::SUI"));
+        const usdcBor = (parsed.borrows ?? []).find((b) => String(b.coinType).toLowerCase().includes("usdc"));
+        if (!suiDep && !usdcBor) continue;
+        const collateral = suiDep
+          ? { type: COINS.SUI, amountHuman: +sNum(suiDep.depositedAmount).toFixed(4), usd: +sNum(suiDep.depositedAmountUsd).toFixed(2) }
+          : undefined;
+        const debt = usdcBor
+          ? { type: COINS.USDC, amountHuman: +sNum(usdcBor.borrowedAmount).toFixed(4), usd: +sNum(usdcBor.borrowedAmountUsd).toFixed(2) }
+          : undefined;
+        const limit = sNum(parsed.borrowLimitUsd);
+        const weighted = sNum(parsed.weightedBorrowsUsd);
+        const healthFactor = weighted > 0 ? +(limit / weighted).toFixed(2) : undefined;
+        out.push({ positionId: parsed.id ?? obligationId, collateral, debt, healthFactor });
+      } catch { /* skip unreadable obligation */ }
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }

@@ -1,6 +1,6 @@
 // File: app/app/page.tsx · Workspace (client). Live position, deleverage gauge, refinance, DeepBook.
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { PositionCard } from "../components/PositionCard";
@@ -8,16 +8,25 @@ import { PreviewPanel } from "../components/PreviewPanel";
 import { BeforeAfterPanel } from "../components/BeforeAfterPanel";
 import { DeleveragePanel } from "../components/DeleveragePanel";
 import { DestinationPicker, type DestId } from "../components/DestinationPicker";
+import { PositionPicker } from "../components/PositionPicker";
 import { DeepBookPanel } from "../components/DeepBookPanel";
 import { ActionButton } from "../components/ActionButton";
 import { Progress } from "../components/Progress";
 import { TxLink } from "../components/TxLink";
 import { Reveal } from "../components/Reveal";
 import { BrandMark } from "../components/BrandMark";
-import type { PositionView, PreviewResult } from "@/lib/types";
+import type { PositionView, PreviewResult, Position } from "@/lib/types";
 
 const DEMO = process.env.NEXT_PUBLIC_DEMO_ADDRESS || "";
 type Mode = "deleverage" | "refinance";
+const LENDER_LABEL: Record<Position["protocol"], string> = { navi: "Navi", suilend: "Suilend", alphalend: "AlphaLend" };
+
+// Refinance amount control: move the whole loan or a slice. Engine accepts any fraction in (0, 1].
+const REFI_DETENTS = [0.25, 0.5, 0.75, 1.0];
+function snapRefi(f: number): number {
+  for (const d of REFI_DETENTS) if (Math.abs(f - d) <= 0.03) return d;
+  return f;
+}
 
 export default function Workspace() {
   const account = useCurrentAccount();
@@ -33,6 +42,9 @@ export default function Workspace() {
   const [digest, setDigest] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dest, setDest] = useState<DestId>("suilend");
+  const [refiFraction, setRefiFraction] = useState(1.0);
+  const refiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedPosId, setSelectedPosId] = useState<string>("");
 
   useEffect(() => {
     if (!address) { setPosLoading(false); return; }
@@ -42,6 +54,7 @@ export default function Workspace() {
       .then((p: PositionView) => {
         setPos(p);
         if (p?.recommendedDest) setDest(p.recommendedDest); // default to the cheapest venue
+        if (p?.selectedPositionId) setSelectedPosId(p.selectedPositionId); // default to the actionable Navi position
       })
       .catch(() => setPosError(true))
       .finally(() => setPosLoading(false));
@@ -51,9 +64,10 @@ export default function Workspace() {
     setMode(m);
     setPreview(null);
     setDigest(null);
+    if (refiTimer.current) clearTimeout(refiTimer.current);
   }
 
-  async function doPreview(destId: DestId = dest) {
+  async function doPreview(destId: DestId = dest, fraction: number = refiFraction) {
     if (!pos?.hasPosition || !pos.collateral || !pos.debt) return;
     setLoading(true); setPreview(null); setDigest(null);
     try {
@@ -62,6 +76,7 @@ export default function Workspace() {
         debtAtomic: String(Math.round(pos.debt.amountHuman * 1e6)),
         collateralAtomic: String(Math.round(pos.collateral.amountHuman * 1e9)),
         destId,
+        fraction,
       };
       const r = await fetch("/api/preview", {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
@@ -76,8 +91,21 @@ export default function Workspace() {
 
   function chooseDest(d: DestId) {
     setDest(d);
-    if (preview) doPreview(d); // re-run only if the user has already previewed
+    if (preview) doPreview(d, refiFraction); // re-run only if the user has already previewed
   }
+
+  // Dragging the amount updates the label instantly; re-previews (debounced) only if already previewed.
+  function onRefiSlide(raw: number) {
+    const f = snapRefi(raw);
+    setRefiFraction(f);
+    if (refiTimer.current) clearTimeout(refiTimer.current);
+    if (preview) refiTimer.current = setTimeout(() => doPreview(dest, f), 350);
+  }
+
+  // Cross-lender selection. Only the Navi position is actionable (the engine source); others are view-only.
+  const positions = pos?.positions ?? [];
+  const selectedPos = positions.find((p) => p.id === selectedPosId) ?? positions[0];
+  const actionable = selectedPos ? selectedPos.actionable : true; // back-compat: no positions[] -> Navi
 
   return (
     <div className="wrap app">
@@ -113,6 +141,9 @@ export default function Workspace() {
 
         {!posLoading && !posError && pos?.hasPosition && (
           <>
+            <PositionPicker positions={positions} selectedId={selectedPos?.id ?? ""} onSelect={setSelectedPosId} />
+            {actionable ? (
+            <>
             <div className="modes reveal" role="group" aria-label="Operation">
               <button className="mode-btn" aria-pressed={mode === "deleverage"} onClick={() => switchMode("deleverage")}>
                 Reduce my risk
@@ -163,6 +194,43 @@ export default function Workspace() {
                           disabled={loading}
                         />
 
+                        <div className="control">
+                          <div className="control-head">
+                            <span className="ch-label">Move how much</span>
+                            <span className="ch-val big-val">{Math.round(refiFraction * 100)}%</span>
+                          </div>
+                          <div className="slider-wrap">
+                            <input
+                              className="slider"
+                              type="range"
+                              min={0.05}
+                              max={1.0}
+                              step={0.01}
+                              value={refiFraction}
+                              disabled={loading}
+                              aria-label="Refinance amount as a percentage of the loan"
+                              aria-valuetext={`${Math.round(refiFraction * 100)} percent`}
+                              onChange={(e) => onRefiSlide(parseFloat(e.target.value))}
+                              style={{ ["--pct" as string]: `${((refiFraction - 0.05) / 0.95) * 100}%` }}
+                            />
+                            <div className="slider-ticks" aria-hidden="true">
+                              {REFI_DETENTS.map((d) => (
+                                <button
+                                  key={d}
+                                  type="button"
+                                  className={`tick${refiFraction === d ? " on" : ""}`}
+                                  disabled={loading}
+                                  tabIndex={-1}
+                                  onClick={() => onRefiSlide(d)}
+                                >
+                                  {d * 100}%
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="seg-hint">Move the whole loan, or a slice. Snaps to 25, 50, 75, 100 percent.</div>
+                        </div>
+
                         <div className="exec-row">
                           <button className="btn btn-ghost" disabled={loading} onClick={() => doPreview()}>
                             {loading ? "Simulating…" : "Preview refinance"}
@@ -170,7 +238,7 @@ export default function Workspace() {
                           <ActionButton
                             txB64={preview?.txB64}
                             disabled={!preview?.ok || !connected}
-                            label={connected ? `Refinance to ${destLabel}` : "Connect a wallet to refinance"}
+                            label={connected ? `Refinance ${refiFraction < 1 ? Math.round(refiFraction * 100) + "% " : ""}to ${destLabel}` : "Connect a wallet to refinance"}
                             pendingLabel="Refinancing…"
                             onDone={setDigest}
                           />
@@ -181,7 +249,8 @@ export default function Workspace() {
                           <BeforeAfterPanel
                             beforeApr={pos.naviAprPct} afterApr={destApr}
                             beforeHealth={pos.healthFactor} afterHealth={preview.healthAfter}
-                            aprDeltaPct={destDelta} debtUsd={pos.debt?.usd}
+                            aprDeltaPct={destDelta}
+                            debtUsd={pos.debt?.usd != null ? +(pos.debt.usd * refiFraction).toFixed(2) : undefined}
                             destLabel={destLabel}
                           />
                         )}
@@ -202,6 +271,33 @@ export default function Workspace() {
               <p className="card-label" style={{ marginTop: 32 }}>DeepBook best execution</p>
               <DeepBookPanel />
             </div>
+            </>
+            ) : (
+              <div className="grid reveal" data-d="1">
+                <aside className="card" aria-label="Position detail">
+                  <p className="card-label">Position detail</p>
+                  <div className="pos-lender">
+                    <span className="lname">{selectedPos ? LENDER_LABEL[selectedPos.protocol] : ""}</span>
+                    <span className="badge">Lender</span>
+                  </div>
+                  <div className="pos-row"><span className="k">Collateral</span><span className="v">{selectedPos?.collateral?.amountHuman?.toFixed(2)} SUI</span></div>
+                  <div className="pos-row"><span className="k">Borrowed</span><span className="v">{selectedPos?.debt?.amountHuman?.toFixed(2)} USDC</span></div>
+                  <div className="pos-row"><span className="k">Borrow APR</span><span className="v hi">{selectedPos?.borrowAprPct?.toFixed(1)}%</span></div>
+                  <div className="pos-row"><span className="k">Health factor</span><span className="v">{selectedPos?.healthFactor != null ? selectedPos.healthFactor.toFixed(2) : "n/a"}</span></div>
+                </aside>
+                <div className="card hero-panel">
+                  <div className="hp-left">
+                    <p className="hp-eyebrow">View only</p>
+                    <h3 className="hp-h">This loan lives on {selectedPos ? LENDER_LABEL[selectedPos.protocol] : ""}.</h3>
+                    <p className="hp-sub">
+                      RefiRail moves and de-risks your Navi loan today. This is the position you
+                      refinanced onto {selectedPos ? LENDER_LABEL[selectedPos.protocol] : ""}. Select your
+                      Navi position above to move or de-risk it.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

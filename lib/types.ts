@@ -7,6 +7,27 @@ export interface CoinAmount {
   usd?: number;
 }
 
+// A position read from a single lender (raw, before lender-tagging). Returned by the per-lender readers.
+export interface LenderPosition {
+  positionId: string;
+  collateral?: CoinAmount;
+  debt?: CoinAmount;
+  borrowAprPct?: number;
+  healthFactor?: number;
+}
+
+// A position surfaced in the cross-lender picker. `actionable` is true only for the Navi source today
+// (the only lender wired into the deleverage/refinance engine); others are read-only.
+export interface Position {
+  id: string; // "navi:<id>" | "alphalend:<positionId>" | "suilend:<obligationId>"
+  protocol: "navi" | "suilend" | "alphalend";
+  collateral?: CoinAmount;
+  debt?: CoinAmount;
+  borrowAprPct?: number;
+  healthFactor?: number;
+  actionable: boolean;
+}
+
 export interface PositionView {
   hasPosition: boolean;
   address: string;
@@ -19,6 +40,9 @@ export interface PositionView {
   recommendedDest?: "suilend" | "alphalend"; // cheapest destination by borrow APR
   healthFactor?: number;
   note?: string; // e.g. guidance when no position exists
+  // Cross-lender picker (additive; primary fields above stay the actionable Navi position for back-compat).
+  positions?: Position[];
+  selectedPositionId?: string; // defaults to the primary Navi position id
 }
 
 export interface BalanceChange {
