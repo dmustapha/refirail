@@ -41,6 +41,7 @@ Every operation is real on Sui mainnet — no testnet, no mocks. The full ledger
 - **Atomic deleverage** (DeepBook flash + fee-free two-hop), health 1.89 → 2.92: [`4S5bhsgZ…`](https://suiscan.xyz/mainnet/tx/4S5bhsgZhsrwjaavUNBAZKyDwWKxKfruUTUXD6jT3S8K)
 - **Atomic refinance** (Navi → Suilend, one PTB): [`BiMBPK7s…`](https://suiscan.xyz/mainnet/tx/BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK)
 - **Atomic refinance, second destination** (Navi → AlphaLend, one PTB — the multi-lender router routing to a different money market): [`3UgVGY2y…`](https://suiscan.xyz/mainnet/tx/3UgVGY2ydYTRsQFAV7MFpxFe9frnFgJVFPhxbyFKuvL6)
+- **Atomic partial refinance** (30% of a Navi loan moved to Suilend, the rest left in place at the same loan-to-value): [`8djvtzLp…`](https://suiscan.xyz/mainnet/tx/8djvtzLpTa36oLUYs2jWGzTsExRd7HQdDb46WBUbF3WF)
 
 RefiRail deploys **zero net-new Move** — it composes Navi, Suilend, AlphaLend, DeepBook, and Pyth entirely at the PTB layer.
 

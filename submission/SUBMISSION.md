@@ -53,6 +53,7 @@ No testnet, no mocks. Full ledger in `submission/proof.md` and `submission/proof
 - Atomic deleverage (DeepBook flash + fee-free two-hop): https://suiscan.xyz/mainnet/tx/4S5bhsgZhsrwjaavUNBAZKyDwWKxKfruUTUXD6jT3S8K
 - Atomic refinance, Navi to Suilend: https://suiscan.xyz/mainnet/tx/BiMBPK7sLPc1F4DNv4GRseCoLVWPb2oxNdR33Ep8wdsK
 - Atomic refinance, Navi to AlphaLend (the multi-lender router): https://suiscan.xyz/mainnet/tx/3UgVGY2ydYTRsQFAV7MFpxFe9frnFgJVFPhxbyFKuvL6
+- Atomic PARTIAL refinance, 30% Navi to Suilend (the rest stays put, same loan-to-value): https://suiscan.xyz/mainnet/tx/8djvtzLpTa36oLUYs2jWGzTsExRd7HQdDb46WBUbF3WF
 
 ## Deployment / Package ID
 RefiRail deploys zero net-new Move. It is composition-only: the entire product is built at the PTB layer over existing audited protocols, which is itself the technical thesis (no new attack surface). There is therefore no RefiRail Move package to register. If the form requires a Package ID, use the protocols it composes, or point to the proof transactions above, which show all of them invoked inside one atomic tx:
