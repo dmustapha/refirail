@@ -359,7 +359,7 @@ button.venue-dest[aria-pressed="true"] .vtag { color: var(--aqua); }
   opacity: 0;
   transform: translateY(44px);
   filter: blur(6px);
-  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease), filter 0.8s var(--ease);
+  transition: opacity 1.8s var(--ease), transform 1.8s var(--ease), filter 1.8s var(--ease);
   will-change: opacity, transform, filter;
 }
 .js-ready .reveal.in { opacity: 1; transform: none; filter: blur(0); }
